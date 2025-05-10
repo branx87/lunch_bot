@@ -67,18 +67,19 @@ from .states import (
 SELECT_MONTH_RANGE_STATS = 'select_month_range_stats'
 AWAIT_USER_SELECTION = 'handle_user_selection'
 
-def setup_handlers(application: Application):
+def setup_handlers(application):
+    """Настройка обработчиков сообщений"""
     # 1. Основные обработчики
     setup_message_handlers(application)
     
-    # 2. Обработчик рассылки (только для админов)
+    # 2. Обработчик команды рассылки
     application.add_handler(MessageHandler(
         filters.Regex("^📢 Сделать рассылку$") & 
-        filters.User(user_id=CONFIG['admin_ids']),  # Исправлено на user_id
+        filters.User(user_id=CONFIG['admin_ids']),
         handle_broadcast_command
     ))
     
-    # 3. Основной ConversationHandler
+    # 3. Основной ConversationHandler (без BROADCAST_MESSAGE в states)
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start),
@@ -87,9 +88,6 @@ def setup_handlers(application: Application):
             MessageHandler(filters.Regex("^Написать администратору$"), start_user_to_admin_message),
         ],
         states={
-            "BROADCAST_MESSAGE": [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, process_broadcast_message)
-            ],
             SELECT_MONTH_RANGE_STATS: [
                 MessageHandler(
                     filters.Regex("^(Текущий месяц|Прошлый месяц|Вернуться в главное меню)$"),
@@ -142,8 +140,3 @@ def setup_handlers(application: Application):
 
     # 7. Обработчик ошибок
     application.add_error_handler(error_handler)
-    
-    # Добавляем новый обработчик для админов
-    # application.add_handler(
-        # CommandHandler("add_user", add_user_id, filters=filters.User(user_id=CONFIG['admin_ids']))
-    # )

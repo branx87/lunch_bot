@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from .common import show_main_menu
 from .report_handlers import select_month_range
 from admin import export_accounting_report
+from .admin_handlers import process_broadcast_message
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,9 @@ async def test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Проверка на сообщение для рассылки
+    if context.user_data.get('awaiting_broadcast'):
+        return await process_broadcast_message(update, context)
     user = update.effective_user
     text = update.message.text
     logger.info(f"Получено сообщение: '{text}' от {user.id}")

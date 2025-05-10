@@ -60,9 +60,8 @@ async def handle_admin_choice(update: Update, context: ContextTypes.DEFAULT_TYPE
     return ConversationHandler.END  # Заменили ADMIN_MESSAGE
 
 async def handle_broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка команды рассылки"""
-    user = update.effective_user
-    if user.id not in CONFIG['admin_ids']:
+    """Начало процесса рассылки"""
+    if update.effective_user.id not in CONFIG['admin_ids']:
         await update.message.reply_text("❌ У вас нет прав для этой команды")
         return
     
@@ -70,33 +69,30 @@ async def handle_broadcast_command(update: Update, context: ContextTypes.DEFAULT
         "Введите сообщение для рассылки:",
         reply_markup=ReplyKeyboardMarkup([["❌ Отмена"]], resize_keyboard=True)
     )
-    return "BROADCAST_MESSAGE"
+    # Устанавливаем флаг, что ожидается сообщение для рассылки
+    context.user_data['awaiting_broadcast'] = True
 
 async def process_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка текста рассылки"""
     text = update.message.text
     
-    if text.lower() in ["отменить рассылку", "❌ отменить рассылку"]:
+    if text.lower() in ["отмена", "❌ отмена"]:
         await update.message.reply_text(
             "❌ Рассылка отменена",
             reply_markup=create_admin_keyboard()
         )
-        return ConversationHandler.END
+        context.user_data.pop('awaiting_broadcast', None)
+        return
     
     try:
-        # Получаем всех верифицированных пользователей
         db.cursor.execute("SELECT telegram_id, full_name FROM users WHERE is_verified = TRUE")
         users = db.cursor.fetchall()
         
         if not users:
-            await update.message.reply_text(
-                "❌ Нет пользователей для рассылки",
-                reply_markup=create_admin_keyboard()
-            )
-            return ConversationHandler.END
+            await update.message.reply_text("❌ Нет пользователей для рассылки")
+            return
         
-        # Отправляем уведомление о начале рассылки
-        await update.message.reply_text(f"⏳ Начинаю рассылку для {len(users)} пользователей...")
+        msg = await update.message.reply_text(f"⏳ Рассылка для {len(users)} пользователей...")
         
         success = 0
         failed = []
@@ -108,21 +104,19 @@ async def process_broadcast_message(update: Update, context: ContextTypes.DEFAUL
                     text=f"📢 Сообщение от администратора:\n\n{text}"
                 )
                 success += 1
-                await asyncio.sleep(0.1)  # Задержка между сообщениями
+                await asyncio.sleep(0.1)
             except Exception as e:
                 failed.append(f"{full_name} (ID: {user_id})")
                 logger.error(f"Ошибка отправки {user_id}: {e}")
         
-        # Формируем отчет
-        report = (
-            f"✅ Рассылка завершена:\n"
-            f"• Всего получателей: {len(users)}\n"
-            f"• Успешно: {success}\n"
-            f"• Не удалось: {len(failed)}"
-        )
+        try:
+            await msg.delete()
+        except:
+            pass
         
+        report = f"✅ Успешно: {success}/{len(users)}"
         if failed:
-            report += "\n\nНе удалось отправить:\n" + "\n".join(failed[:10])  # Показываем первые 10 ошибок
+            report += f"\n❌ Ошибки: {len(failed)}"
         
         await update.message.reply_text(
             report,
@@ -131,9 +125,6 @@ async def process_broadcast_message(update: Update, context: ContextTypes.DEFAUL
         
     except Exception as e:
         logger.error(f"Ошибка рассылки: {e}")
-        await update.message.reply_text(
-            "❌ Произошла ошибка при рассылке",
-            reply_markup=create_admin_keyboard()
-        )
+        await update.message.reply_text("❌ Ошибка при рассылке")
     
-    return ConversationHandler.END
+    context.user_data.pop('awaiting_broadcast', None)

@@ -19,6 +19,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+full_code.py
 
 # Virtual environment
 venv/
