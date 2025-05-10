@@ -4,11 +4,13 @@ from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filt
 from db import db
 from config import CONFIG
 from keyboards import create_main_menu_keyboard, create_admin_keyboard
+import asyncio
+from .states import (
+    AWAIT_USER_SELECTION,
+    AWAIT_MESSAGE_TEXT
+)
 
 logger = logging.getLogger(__name__)
-
-# Состояния для ConversationHandler
-AWAIT_MESSAGE_TEXT, AWAIT_USER_SELECTION = range(2)
 
 async def start_user_to_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Начало диалога пользователя с админом"""
@@ -296,3 +298,78 @@ def setup_message_handlers(application):
 
     application.add_handler(user_conv)
     application.add_handler(admin_conv)
+
+async def handle_broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка команды рассылки"""
+    if update.effective_user.id not in CONFIG['admin_ids']:
+        logger.warning(f"Попытка рассылки от неадмина: {update.effective_user.id}")
+        await update.message.reply_text("❌ У вас нет прав для этой команды")
+        return ConversationHandler.END
+    
+    logger.info(f"Начало рассылки админом {update.effective_user.id}")
+    await update.message.reply_text(
+        "Введите сообщение для рассылки:",
+        reply_markup=ReplyKeyboardMarkup([["❌ Отмена"]], resize_keyboard=True)
+    )
+    return AWAIT_MESSAGE_TEXT
+
+async def process_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка текста рассылки"""
+    text = update.message.text
+    logger.info(f"Получен текст для рассылки: {text}")
+    
+    if text.lower() in ["отмена", "❌ отмена"]:
+        logger.info("Рассылка отменена")
+        await update.message.reply_text(
+            "❌ Рассылка отменена",
+            reply_markup=create_admin_keyboard()
+        )
+        return ConversationHandler.END
+    
+    try:
+        db.cursor.execute("SELECT telegram_id, full_name FROM users WHERE is_verified = TRUE")
+        users = db.cursor.fetchall()
+        
+        if not users:
+            logger.warning("Нет верифицированных пользователей для рассылки")
+            await update.message.reply_text("❌ Нет пользователей для рассылки")
+            return ConversationHandler.END
+        
+        logger.info(f"Начало рассылки для {len(users)} пользователей")
+        msg = await update.message.reply_text(f"⏳ Рассылка для {len(users)} пользователей...")
+        
+        success = 0
+        failed = []
+        
+        for user_id, full_name in users:
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"📢 Сообщение от администратора:\n\n{text}"
+                )
+                success += 1
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                failed.append(f"{full_name} (ID: {user_id})")
+                logger.error(f"Ошибка отправки {user_id}: {e}")
+        
+        try:
+            await msg.delete()
+        except Exception as e:
+            logger.error(f"Ошибка удаления сообщения: {e}")
+        
+        report = f"✅ Успешно: {success}/{len(users)}"
+        if failed:
+            report += f"\n❌ Ошибки: {len(failed)}"
+        
+        logger.info(f"Результат рассылки: {report}")
+        await update.message.reply_text(
+            report,
+            reply_markup=create_admin_keyboard()
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка рассылки: {e}", exc_info=True)
+        await update.message.reply_text("❌ Ошибка при рассылке")
+    
+    return ConversationHandler.END

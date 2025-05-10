@@ -14,6 +14,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     filename='bot.log'
 )
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='bot.log',
+    filemode='a'  # Режим добавления в файл
+)
+logger = logging.getLogger(__name__)
 
 async def shutdown(bot):
     print("\n🛑 Завершение работы бота...")

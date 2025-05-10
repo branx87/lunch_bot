@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from .common import show_main_menu
 from .report_handlers import select_month_range
 from admin import export_accounting_report
-from .admin_handlers import process_broadcast_message
+from .message_handlers import process_broadcast_message
 
 logger = logging.getLogger(__name__)
 
@@ -97,9 +97,6 @@ async def test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Проверка на сообщение для рассылки
-    if context.user_data.get('awaiting_broadcast'):
-        return await process_broadcast_message(update, context)
     user = update.effective_user
     text = update.message.text
     logger.info(f"Получено сообщение: '{text}' от {user.id}")
@@ -128,11 +125,11 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
             return FULL_NAME
 
-        # 2. Проверка регистрации для остальных сообщений
+        # 2. Проверка регистрации
         if not await check_registration(update, context):
             return await handle_unregistered(update, context)
 
-        # 3. Обработка команд от зарегистрированных пользователей
+        # 3. Обработка команд отчетов
         if text in ["💰 Бухгалтерский отчет", "📦 Отчет поставщика"]:
             context.user_data['report_type'] = 'accounting' if text.startswith('💰') else 'provider'
             await update.message.reply_text(
@@ -147,7 +144,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         if text in ["Текущий месяц", "Прошлый месяц"] and context.user_data.get('report_type'):
             return await select_month_range(update, context)
         
-        # 4. Все остальные команды передаем в основное меню
+        # 4. Все остальные команды
         return await main_menu(update, context)
         
     except Exception as e:

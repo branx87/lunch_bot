@@ -130,3 +130,178 @@ NameError: name 'process_broadcast_message' is not defined
 2025-05-10 22:04:33,151 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
 2025-05-10 22:04:33,174 - telegram.ext.Application - INFO - Application.stop() complete
 2025-05-10 22:04:33,190 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 22:25:45,883 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 22:25:46,207 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 22:25:46,212 - telegram.ext.Application - INFO - Application started
+2025-05-10 22:25:46,418 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 22:25:46,419 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 22:25:52,860 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:25:53,270 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:25:58,977 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:25:58,988 - handlers.base_handlers - INFO - Получено сообщение: 'авацар' от 361126810
+2025-05-10 22:25:58,989 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:25:58,994 - handlers.base_handlers - INFO - Получена команда: 'авацар' от пользователя 361126810
+2025-05-10 22:25:58,995 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:25:59,311 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:25:59,414 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:26:09,140 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:26:12,624 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 22:26:12,625 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 22:26:12,628 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 22:40:17,427 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 22:40:17,818 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 22:40:17,828 - telegram.ext.Application - INFO - Application started
+2025-05-10 22:40:17,916 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 22:40:17,917 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 22:40:25,413 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:40:25,673 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:40:30,216 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:40:30,222 - handlers.base_handlers - INFO - Получено сообщение: 'впррф' от 361126810
+2025-05-10 22:40:30,223 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:40:30,224 - handlers.base_handlers - INFO - Получена команда: 'впррф' от пользователя 361126810
+2025-05-10 22:40:30,224 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:40:30,386 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:40:30,547 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:40:37,315 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 22:40:37,317 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 22:40:37,320 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 22:42:28,904 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 22:42:29,188 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 22:42:29,192 - telegram.ext.Application - INFO - Application started
+2025-05-10 22:42:29,265 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 22:42:29,266 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 22:42:36,040 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:42:36,311 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:42:39,343 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:42:39,346 - handlers.base_handlers - INFO - Получено сообщение: 'пук' от 361126810
+2025-05-10 22:42:39,347 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:42:39,347 - handlers.base_handlers - INFO - Получена команда: 'пук' от пользователя 361126810
+2025-05-10 22:42:39,347 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:42:39,444 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:42:39,553 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:42:44,003 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 22:42:44,003 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 22:42:44,005 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 22:48:41,720 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 22:48:42,002 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 22:48:42,004 - telegram.ext.Application - INFO - Application started
+2025-05-10 22:48:42,077 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 22:48:42,078 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 22:48:48,394 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:48:48,399 - handlers.message_handlers - INFO - === НАЧАЛО ОБРАБОТКИ РАССЫЛКИ ===
+2025-05-10 22:48:48,400 - handlers.message_handlers - INFO - User ID: 361126810
+2025-05-10 22:48:48,400 - handlers.message_handlers - INFO - Admin IDs: [361126810]
+2025-05-10 22:48:48,400 - handlers.message_handlers - INFO - Message text: 📢 Сделать рассылку
+2025-05-10 22:48:48,400 - handlers.message_handlers - INFO - Начало процесса рассылки
+2025-05-10 22:48:48,674 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:48:53,388 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:48:53,394 - handlers.base_handlers - INFO - Получено сообщение: 'прпрс авп' от 361126810
+2025-05-10 22:48:53,395 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:48:53,396 - handlers.base_handlers - INFO - Получена команда: 'прпрс авп' от пользователя 361126810
+2025-05-10 22:48:53,397 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:48:53,503 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:48:53,603 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:48:58,274 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 22:48:58,280 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 22:48:58,284 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 22:56:06,484 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 22:56:06,774 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 22:56:06,777 - telegram.ext.Application - INFO - Application started
+2025-05-10 22:56:06,850 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 22:56:06,851 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 22:56:13,441 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:56:13,447 - handlers.message_handlers - INFO - === НАЧАЛО ОБРАБОТКИ РАССЫЛКИ ===
+2025-05-10 22:56:13,448 - handlers.message_handlers - INFO - User ID: 361126810
+2025-05-10 22:56:13,448 - handlers.message_handlers - INFO - Admin IDs: [361126810]
+2025-05-10 22:56:13,449 - handlers.message_handlers - INFO - Message text: 📢 Сделать рассылку
+2025-05-10 22:56:13,449 - handlers.message_handlers - INFO - Начало процесса рассылки
+2025-05-10 22:56:13,744 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:56:16,832 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 22:56:16,836 - handlers.base_handlers - INFO - Получено сообщение: 'кпуфр' от 361126810
+2025-05-10 22:56:16,838 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:56:16,838 - handlers.base_handlers - INFO - Получена команда: 'кпуфр' от пользователя 361126810
+2025-05-10 22:56:16,839 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 22:56:17,054 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:56:17,271 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 22:56:22,647 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 22:56:22,648 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 22:56:22,651 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 23:05:33,291 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 23:05:33,587 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 23:05:33,591 - telegram.ext.Application - INFO - Application started
+2025-05-10 23:05:33,662 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 23:05:33,663 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 23:05:39,906 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:05:39,910 - handlers.message_handlers - INFO - Начало рассылки админом 361126810
+2025-05-10 23:05:40,169 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:05:42,931 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:05:42,937 - handlers.base_handlers - INFO - Получено сообщение: 'аыа' от 361126810
+2025-05-10 23:05:42,938 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 23:05:42,939 - handlers.base_handlers - INFO - Получена команда: 'аыа' от пользователя 361126810
+2025-05-10 23:05:42,939 - utils - INFO - Пользователь 361126810 статус верификации: 1
+2025-05-10 23:05:43,044 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:05:43,170 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:05:48,753 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 23:05:48,755 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 23:05:48,765 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 23:20:03,154 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 23:20:03,465 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 23:20:03,469 - telegram.ext.Application - INFO - Application started
+2025-05-10 23:20:03,549 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 23:20:03,550 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 23:20:13,789 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:20:23,864 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:20:33,943 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:20:44,022 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:20:54,098 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:04,176 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:14,249 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:24,323 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:34,402 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:44,477 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:21:54,552 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:04,626 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:14,702 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:24,777 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:34,858 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:44,936 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:22:55,011 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:05,091 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:15,183 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:25,260 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:35,336 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:45,415 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:23:55,493 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:24:05,569 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:24:15,646 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:24:22,754 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 23:24:22,758 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 23:24:22,786 - bot_core - INFO - Бот корректно остановлен
+2025-05-10 23:28:16,093 - telegram.ext.Application - WARNING - The callback is already registered as an error handler. Ignoring.
+2025-05-10 23:28:16,366 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getMe "HTTP/1.1 200 OK"
+2025-05-10 23:28:16,371 - telegram.ext.Application - INFO - Application started
+2025-05-10 23:28:16,443 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteWebhook "HTTP/1.1 200 OK"
+2025-05-10 23:28:16,445 - bot_core - INFO - Бот запущен и готов к работе
+2025-05-10 23:28:26,513 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:26,518 - handlers.message_handlers - INFO - Начало рассылки админом 361126810
+2025-05-10 23:28:26,797 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:29,839 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:29,843 - handlers.message_handlers - INFO - Получен текст для рассылки: упф
+2025-05-10 23:28:29,845 - handlers.message_handlers - INFO - Начало рассылки для 1 пользователей
+2025-05-10 23:28:29,996 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:30,176 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:30,483 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/deleteMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:30,486 - handlers.message_handlers - INFO - Результат рассылки: ✅ Успешно: 1/1
+2025-05-10 23:28:30,652 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:39,926 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:44,867 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:45,128 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:54,967 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:55,253 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:55,516 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:59,569 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/getUpdates "HTTP/1.1 200 OK"
+2025-05-10 23:28:59,734 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:28:59,863 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7837959894:AAF3nfC9mV8iNIlyB2J9Pahc7hSw5OF0EcM/sendMessage "HTTP/1.1 200 OK"
+2025-05-10 23:29:09,574 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-05-10 23:29:09,576 - telegram.ext.Application - INFO - Application.stop() complete
+2025-05-10 23:29:09,588 - bot_core - INFO - Бот корректно остановлен

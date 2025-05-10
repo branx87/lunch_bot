@@ -13,7 +13,15 @@ from telegram.ext import (
 
 # Импорты локальных модулей
 from .common import show_main_menu
-from .message_handlers import setup_message_handlers, start_user_to_admin_message, handle_user_message, handle_user_selection, handle_admin_message
+from .message_handlers import (
+    setup_message_handlers,
+    start_user_to_admin_message,
+    process_broadcast_message,
+    handle_broadcast_command,
+    handle_user_message,
+    handle_user_selection,
+    handle_admin_message
+)
 from .base_handlers import (
     start,
     error_handler,
@@ -43,9 +51,7 @@ from .callback_handlers import (
     handle_cancel_callback
 )
 from .admin_handlers import (
-    handle_admin_choice,
-    handle_broadcast_command,
-    process_broadcast_message
+    handle_admin_choice
 )
 from .report_handlers import select_month_range
 
@@ -68,18 +74,33 @@ SELECT_MONTH_RANGE_STATS = 'select_month_range_stats'
 AWAIT_USER_SELECTION = 'handle_user_selection'
 
 def setup_handlers(application):
-    """Настройка обработчиков сообщений"""
-    # 1. Основные обработчики
+    # 1. Обработчик рассылки (добавляется ПЕРВЫМ)
+    broadcast_handler = ConversationHandler(
+        entry_points=[MessageHandler(
+            filters.Regex("^📢 Сделать рассылку$") & 
+            filters.User(user_id=CONFIG['admin_ids']),
+            handle_broadcast_command
+        )],
+        states={
+            AWAIT_MESSAGE_TEXT: [MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                process_broadcast_message
+            )]
+        },
+        fallbacks=[
+            CommandHandler('cancel', lambda u, c: show_main_menu(u, u.effective_user.id)),
+            MessageHandler(filters.Regex("^(❌ Отмена|Отмена)$"), 
+                        lambda u, c: show_main_menu(u, u.effective_user.id))
+        ],
+        allow_reentry=True
+    )
+    application.add_handler(broadcast_handler)
+
+    # 2. Основные обработчики сообщений
+    from handlers.message_handlers import setup_message_handlers
     setup_message_handlers(application)
     
-    # 2. Обработчик команды рассылки
-    application.add_handler(MessageHandler(
-        filters.Regex("^📢 Сделать рассылку$") & 
-        filters.User(user_id=CONFIG['admin_ids']),
-        handle_broadcast_command
-    ))
-    
-    # 3. Основной ConversationHandler (без BROADCAST_MESSAGE в states)
+    # 3. Основной ConversationHandler
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start),
