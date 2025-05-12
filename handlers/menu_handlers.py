@@ -1,7 +1,8 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler
 from datetime import datetime, timedelta, date
+import time
 from config import CONFIG, LOCATIONS, TIMEZONE, MENU, ADMIN_IDS
 from db import db
 from utils import (
@@ -137,6 +138,7 @@ async def show_week_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ Ошибка при загрузке меню. Попробуйте позже.",
             reply_markup=create_main_menu_keyboard(user.id)
         )
+        
 async def show_day_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, day_offset=0):
     """Показывает меню на указанный день с возможностью заказа"""
     try:
@@ -205,42 +207,48 @@ async def show_day_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, day_
         await update.message.reply_text("⚠️ Ошибка загрузки меню")
 
 # --- Просмотр заказов ---
-async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает только будущие и сегодняшние активные (не отменённые) заказы"""
+async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_cancellation=False):
+    """Показывает активные заказы с рабочей кнопкой главного меню"""
     try:
-        # Определяем, откуда вызвана функция
-        if hasattr(update, 'message'):
-            user = update.effective_user
-            message = update.message
-        else:
-            user = update.callback_query.from_user
-            message = update.callback_query.message
+        # Определяем источник вызова
+        query = update.callback_query if hasattr(update, 'callback_query') else None
+        message = query.message if query else update.message
+        user = query.from_user if query else update.effective_user
+        
+        if not message or not user:
+            logger.error("Не удалось определить сообщение или пользователя")
+            return
 
         user_id = user.id
-        now = datetime.now(TIMEZONE)
-        today_str = now.date().isoformat()
+        today_str = datetime.now(TIMEZONE).date().isoformat()
 
-        # Получаем только будущие и сегодняшние заказы
+        # Получаем активные заказы
         db.cursor.execute("""
-            SELECT o.target_date, o.quantity, o.is_preliminary
-            FROM orders o
-            JOIN users u ON o.user_id = u.id
-            WHERE u.telegram_id = ?
-            AND o.is_cancelled = FALSE
-            AND o.target_date >= ?
-            ORDER BY o.target_date
+            SELECT target_date, quantity, is_preliminary
+            FROM orders 
+            WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)
+            AND is_cancelled = FALSE
+            AND target_date >= ?
+            ORDER BY target_date
         """, (user_id, today_str))
-
         active_orders = db.cursor.fetchall()
 
+        # Обработка случая без заказов
         if not active_orders:
-            await message.reply_text("ℹ️ У вас нет активных заказов.")
+            if is_cancellation:
+                text = "✅ Все заказы отменены."
+                if query:
+                    await query.edit_message_text(text)
+                else:
+                    await message.reply_text(text)
+            else:
+                await message.reply_text("ℹ️ У вас нет активных заказов.")
             return await show_main_menu(message, user_id)
 
-        # Формируем текст ответа
-        response = "📦 Ваши активные заказы:\n"
+        # Формируем сообщение
+        response = "📦 <b>Ваши активные заказы:</b>\n\n"
+        response += "<i>Нажмите на заказ, чтобы отменить его</i>\n\n"
         keyboard = []
-
         days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
 
         for order in active_orders:
@@ -248,29 +256,54 @@ async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
             day_name = days_ru[target_date.weekday()]
             date_str = target_date.strftime('%d.%m')
             qty = order[1]
+            status = " (предв.)" if order[2] else ""
 
-            status = " (предварительный)" if order[2] else ""
-            response += f"📅 {day_name} ({date_str}) - {qty} порций{status}\n"
             keyboard.append([
                 InlineKeyboardButton(
-                    f"✕ Отменить {date_str}",
-                    callback_data=f"cancel_{target_date.strftime('%Y-%m-%d')}"
+                    f"{day_name} {date_str} - {qty} порц.{status}",
+                    callback_data=f"cancel_order_{target_date.strftime('%Y-%m-%d')}"
                 )
             ])
 
+        # Добавляем кнопку главного меню с простым callback
         keyboard.append([
-            InlineKeyboardButton("✔ В главное меню", callback_data="back_to_menu")
+            InlineKeyboardButton(
+                "🏠 В главное меню", 
+                callback_data="back_to_main_menu"
+            )
         ])
 
-        await message.reply_text(
-            response,
-            reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
-        )
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # Отправка или редактирование сообщения
+        if query and is_cancellation:
+            try:
+                await query.edit_message_text(
+                    text=response,
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.error(f"Ошибка редактирования: {e}")
+                await query.message.reply_text(
+                    text=response,
+                    reply_markup=reply_markup,
+                    parse_mode="HTML"
+                )
+        else:
+            await message.reply_text(
+                text=response,
+                reply_markup=reply_markup,
+                parse_mode="HTML"
+            )
 
     except Exception as e:
         logger.error(f"Ошибка в view_orders: {e}")
-        await message.reply_text("⚠️ Ошибка загрузки заказов")
+        error_msg = "⚠️ Ошибка загрузки заказов"
+        if query:
+            await query.message.reply_text(error_msg)
+        else:
+            await message.reply_text(error_msg)
         return await show_main_menu(message, user_id)
 
 async def order_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -391,7 +424,6 @@ async def monthly_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Произошла ошибка. Попробуйте позже.")
         return await show_main_menu(update, user.id)
 
-
 async def monthly_stats_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработка выбора месяца и вывод статистики."""
     try:
@@ -486,3 +518,45 @@ async def handle_order_confirmation(update: Update, context: ContextTypes.DEFAUL
         logger.error(f"Ошибка в handle_order_confirmation: {e}")
         await update.message.reply_text("⚠️ Произошла ошибка. Попробуйте снова.")
         return await show_main_menu(update, user.id)
+
+async def handle_cancel_from_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        # Получаем дату из callback_data
+        target_date_str = query.data.split('_')[-1]
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+        
+        # Проверяем возможность отмены
+        if not can_modify_order(target_date):
+            await query.answer("ℹ️ Отмена невозможна после 9:30", show_alert=True)
+            return
+
+        # Отменяем заказ
+        user_id = query.from_user.id
+        now = datetime.now(TIMEZONE)
+        
+        db.cursor.execute("""
+            UPDATE orders
+            SET is_cancelled = TRUE,
+                cancelled_at = ?
+            WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)
+            AND target_date = ?
+            AND is_cancelled = FALSE
+        """, (now.isoformat(), user_id, target_date_str))
+        db.conn.commit()
+
+        if db.cursor.rowcount == 0:
+            await query.answer("❌ Заказ не найден или уже отменен", show_alert=True)
+            return
+
+        logger.info(f"Пользователь {user_id} отменил заказ на {target_date_str}")
+        
+        # Обновляем список заказов
+        await view_orders(update, context, is_cancellation=True)
+        await query.answer(f"✅ Заказ на {target_date.strftime('%d.%m')} отменён")
+
+    except Exception as e:
+        logger.error(f"Ошибка при отмене заказа: {e}")
+        await query.answer("⚠️ Ошибка при отмене заказа", show_alert=True)

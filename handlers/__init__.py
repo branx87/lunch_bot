@@ -42,13 +42,16 @@ from .menu_handlers import (
     monthly_stats,
     handle_order_confirmation,
     order_action,
-    monthly_stats_selected
+    monthly_stats_selected,
+    handle_cancel_from_view
 )
 from .callback_handlers import (
     callback_handler,
     handle_order_callback,
     handle_change_callback,
-    handle_cancel_callback
+    handle_cancel_callback,
+    handle_cancel_order,
+    handle_back_to_menu
 )
 from .admin_handlers import (
     handle_admin_choice
@@ -95,6 +98,27 @@ def setup_handlers(application):
         allow_reentry=True
     )
     application.add_handler(broadcast_handler)
+    
+    application.add_handler(CallbackQueryHandler(
+        handle_cancel_order, 
+        pattern=r'^cancel_order_\d{4}-\d{2}-\d{2}$'
+    ))
+    application.add_handler(CallbackQueryHandler(
+        handle_cancel_order,
+        pattern=r'^cancel_\d+$'
+    ))
+    application.add_handler(CallbackQueryHandler(
+        handle_cancel_order, 
+        pattern=r'^cancel(_order)?_'
+    ))
+   
+   # Обработчик для кнопки "В главное меню"
+    application.add_handler(CallbackQueryHandler(
+        handle_back_to_menu, 
+        pattern="^back_to_main_menu$"
+    ))
+    
+    application.add_handler(CallbackQueryHandler(handle_cancel_order, pattern='^cancel_'))
 
     # 2. Основные обработчики сообщений
     from handlers.message_handlers import setup_message_handlers
