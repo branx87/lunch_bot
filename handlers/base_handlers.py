@@ -2,7 +2,18 @@ import logging
 import asyncio
 from telegram import Update, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, ContextTypes
-from .states import PHONE, MAIN_MENU, SELECT_MONTH_RANGE, FULL_NAME
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME, 
+    LOCATION, MAIN_MENU, 
+    ORDER_ACTION, 
+    ORDER_CONFIRMATION, 
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE, 
+    ADMIN_MESSAGE, 
+    AWAIT_USER_SELECTION, 
+    SELECT_MONTH_RANGE_STATS
+)
 from db import db
 from config import CONFIG, ADMIN_IDS
 from keyboards import create_main_menu_keyboard
@@ -228,7 +239,9 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Для администраторов
         elif text == "📊 Отчет за день":
-            if user.id in CONFIG['admin_ids']:
+            if (user.id in CONFIG.get('admin_ids', []) or 
+                user.id in CONFIG.get('provider_ids', []) or 
+                user.id in CONFIG.get('accounting_ids', [])):
                 context.user_data['report_type'] = 'admin'
                 await export_accounting_report(update, context)
                 return await show_main_menu(update, user.id)
@@ -237,7 +250,9 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return await show_main_menu(update, user.id)
 
         elif text == "📅 Отчет за месяц":
-            if user.id in CONFIG['admin_ids']:
+            if (user.id in CONFIG.get('admin_ids', []) or 
+                user.id in CONFIG.get('provider_ids', []) or 
+                user.id in CONFIG.get('accounting_ids', [])):
                 context.user_data['report_type'] = 'admin'
                 await update.message.reply_text(
                     "Выберите период:",

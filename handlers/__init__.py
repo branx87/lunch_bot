@@ -1,6 +1,18 @@
 from datetime import datetime, timedelta
 from telegram import Update
 from config import CONFIG
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME, 
+    LOCATION, MAIN_MENU, 
+    ORDER_ACTION, 
+    ORDER_CONFIRMATION, 
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE, 
+    ADMIN_MESSAGE, 
+    AWAIT_USER_SELECTION, 
+    SELECT_MONTH_RANGE_STATS
+)
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -50,31 +62,12 @@ from .callback_handlers import (
     handle_order_callback,
     handle_change_callback,
     handle_cancel_callback,
-    handle_cancel_order,
-    handle_back_to_menu
+    handle_cancel_order
 )
 from .admin_handlers import (
     handle_admin_choice
 )
 from .report_handlers import select_month_range
-
-# Состояния диалога
-from .states import (
-    PHONE,
-    FULL_NAME,
-    LOCATION,
-    MAIN_MENU,
-    ORDER_ACTION,
-    ORDER_CONFIRMATION,
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE,
-    AWAIT_MESSAGE_TEXT,
-    AWAIT_USER_SELECTION
-)
-
-# Константы для новых состояний
-SELECT_MONTH_RANGE_STATS = 'select_month_range_stats'
-AWAIT_USER_SELECTION = 'handle_user_selection'
 
 def setup_handlers(application):
     # 1. Обработчик рассылки (добавляется ПЕРВЫМ)
@@ -100,22 +93,8 @@ def setup_handlers(application):
     application.add_handler(broadcast_handler)
     
     application.add_handler(CallbackQueryHandler(
-        handle_cancel_order, 
+        handle_cancel_from_view, 
         pattern=r'^cancel_order_\d{4}-\d{2}-\d{2}$'
-    ))
-    application.add_handler(CallbackQueryHandler(
-        handle_cancel_order,
-        pattern=r'^cancel_\d+$'
-    ))
-    application.add_handler(CallbackQueryHandler(
-        handle_cancel_order, 
-        pattern=r'^cancel(_order)?_'
-    ))
-   
-   # Обработчик для кнопки "В главное меню"
-    application.add_handler(CallbackQueryHandler(
-        handle_back_to_menu, 
-        pattern="^back_to_main_menu$"
     ))
     
     application.add_handler(CallbackQueryHandler(handle_cancel_order, pattern='^cancel_'))

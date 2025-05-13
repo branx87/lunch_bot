@@ -8,24 +8,32 @@ def create_unverified_user_keyboard():
     ], resize_keyboard=True)
 
 def create_main_menu_keyboard(user_id=None):
+    # Базовое меню для всех пользователей
     menu = [
         ["Меню на сегодня", "Меню на неделю"],
         ["Просмотреть заказы", "Статистика за месяц"],
-        ["Написать администратору"]
+        ["Написать администратору"],
+        ["Обновить меню"]
     ]
     
-    if user_id in CONFIG.get('admin_ids', []):
-        menu.insert(0, ["📊 Отчет за день", "📅 Отчет за месяц"])
-        menu.insert(0, ["✉️ Написать пользователю", "📢 Сделать рассылку"])
+    # Кнопки отчетов для админов, поставщиков и бухгалтерии
+    report_buttons = ["📊 Отчет за день", "📅 Отчет за месяц"]
     
-    if user_id in CONFIG.get('provider_ids', []):
-        menu.append(["📦 Отчет поставщика"])
+    # Специальные кнопки только для админов
+    admin_buttons = ["✉️ Написать пользователю", "📢 Сделать рассылку"]
     
-    if user_id in CONFIG.get('accounting_ids', []):
-        menu.append(["💰 Бухгалтерский отчет"])
-
-    menu.append(["Обновить меню"])
-
+    # Проверяем права пользователя
+    is_admin = user_id in CONFIG.get('admin_ids', [])
+    is_provider = user_id in CONFIG.get('provider_ids', [])
+    is_accounting = user_id in CONFIG.get('accounting_ids', [])
+    
+    # Добавляем кнопки в зависимости от роли
+    if is_admin or is_provider or is_accounting:
+        menu.insert(0, report_buttons)
+    
+    if is_admin:
+        menu.insert(0, admin_buttons)
+    
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 def create_month_selection_keyboard():

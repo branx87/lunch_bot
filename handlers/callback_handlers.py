@@ -4,7 +4,18 @@ from datetime import datetime, timedelta
 from config import CONFIG, LOCATIONS, TIMEZONE, MENU, ADMIN_IDS
 from db import db
 from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters, ContextTypes
-from .states import MAIN_MENU
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME, 
+    LOCATION, MAIN_MENU, 
+    ORDER_ACTION, 
+    ORDER_CONFIRMATION, 
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE, 
+    ADMIN_MESSAGE, 
+    AWAIT_USER_SELECTION, 
+    SELECT_MONTH_RANGE_STATS
+)
 from .common import show_main_menu
 from utils import can_modify_order, is_order_cancelled
 from utils import format_menu
@@ -514,36 +525,18 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Ошибка при обработке callback: {inner_e}")
     
 async def handle_cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Универсальный обработчик отмены заказов"""
+    """Обрабатывает отмену конкретного заказа"""
     query = update.callback_query
     await query.answer()
     
     try:
-        # Определяем тип callback_data
-        data_parts = query.data.split('_')
+        # Парсим дату из callback_data
+        target_date_str = query.data.split('_')[1]
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
         
-        if data_parts[0] == "cancel" and data_parts[1] == "order":
-            # Формат из view_orders: cancel_order_YYYY-MM-DD
-            target_date_str = data_parts[2]
-            target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
-        elif data_parts[0] == "cancel":
-            # Формат из меню на неделю: cancel_<day_offset>
-            day_offset = int(data_parts[1])
-            target_date = (datetime.now(TIMEZONE) + timedelta(days=day_offset)).date()
-            target_date_str = target_date.isoformat()
-        else:
-            raise ValueError("Неизвестный формат callback_data")
-
-        # Форматируем дату для отображения
-        day_name = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"][target_date.weekday()]
-        date_formatted = target_date.strftime('%d.%m.%Y')
-        
-        # Проверка возможности отмены
+        # Проверяем возможность отмены
         if not can_modify_order(target_date):
-            await query.answer(
-                f"⏳ Отмена заказа на {day_name} невозможна после 9:30 утра",
-                show_alert=True
-            )
+            await query.answer("ℹ️ Отмена невозможна после 9:30", show_alert=True)
             return
 
         # Выполняем отмену
@@ -558,31 +551,20 @@ async def handle_cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE
         db.conn.commit()
 
         if db.cursor.rowcount == 0:
-            await query.answer(
-                f"🔍 Заказ на {day_name} не найден или уже отменен",
-                show_alert=True
-            )
+            await query.answer("❌ Заказ не найден или уже отменен", show_alert=True)
             return
 
         logger.info(f"Пользователь {user_id} отменил заказ на {target_date_str}")
         
-        # Обновляем интерфейс в зависимости от источника
-        if data_parts[1] == "order":
-            await view_orders(update, context, is_cancellation=True)
-        else:
-            await refresh_day_view(query, day_offset, user_id, datetime.now(TIMEZONE))
+        # Обновляем список заказов
+        await view_orders(update, context, is_cancellation=True)
         
-        await query.answer(
-            f"✅ Заказ на {day_name} {date_formatted} отменён",
-            show_alert=True
-        )
+        # Красивое уведомление об отмене с датой и иконкой
+        await query.answer(f"✅ Заказ на {target_date.strftime('%d.%m')} отменён 🗑️")
 
     except Exception as e:
         logger.error(f"Ошибка при отмене заказа: {e}")
-        await query.answer(
-            "⚠️ Произошла ошибка при отмене заказа",
-            show_alert=True
-        )
+        await query.answer("⚠️ Ошибка при отмене заказа", show_alert=True)
 
 async def handle_back_callback(query, now, user, context):
     """Обработчик кнопки 'Назад'"""
@@ -594,9 +576,3 @@ async def handle_back_callback(query, now, user, context):
     except Exception as e:
         logger.error(f"Ошибка в handle_back_callback: {e}")
         await query.answer("⚠️ Ошибка возврата", show_alert=True)
-    
-async def handle_back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    logger.info(f"Пользователь {query.from_user.id} нажал 'В главное меню'")
-    await show_main_menu(query.message, query.from_user.id)

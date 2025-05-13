@@ -1,29 +1,66 @@
 import openpyxl
 from datetime import datetime, date, timedelta
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
-from config import CONFIG, TIMEZONE
+from config import CONFIG, TIMEZONE, LOCATIONS  # Импортируем LOCATIONS из config
 from db import db
 import logging
 from keyboards import create_main_menu_keyboard
 from openpyxl.styles import Font
 import sqlite3
-from handlers.states import MAIN_MENU
-from handlers.report_handlers import SELECT_MONTH_RANGE
+from handlers.constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME,
+    LOCATION, MAIN_MENU,
+    ORDER_ACTION,
+    ORDER_CONFIRMATION,
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE,
+    ADMIN_MESSAGE,
+    AWAIT_USER_SELECTION,
+    SELECT_MONTH_RANGE_STATS
+)
 from handlers.common import show_main_menu
 from typing import Optional, Union, List, Dict, Any, Tuple, Callable
 import os
 from openpyxl import Workbook
 from openpyxl.styles import Font
-import logging
 
-import logging
+SELECT_MONTH_RANGE = "SELECT_MONTH_RANGE"
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     filename='bot.log'
 )
 logger = logging.getLogger(__name__)
+
+def ensure_reports_dir(report_type: str = 'accounting') -> str:
+    """Создает папку для отчетов если ее нет и возвращает путь к ней"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if report_type == 'provider':
+        reports_dir = os.path.join(base_dir, 'reports', 'provider_reports')
+    elif report_type == 'admin':
+        reports_dir = os.path.join(base_dir, 'reports', 'admin_reports')
+    else:
+        reports_dir = os.path.join(base_dir, 'reports', 'accounting_reports')
+    
+    os.makedirs(reports_dir, exist_ok=True)
+    
+    # Очищаем старые отчеты (оставляем 5 последних)
+    report_files = sorted(
+        [f for f in os.listdir(reports_dir) if f.endswith('.xlsx')],
+        key=lambda x: os.path.getmtime(os.path.join(reports_dir, x)),
+        reverse=True
+    )
+    for old_file in report_files[5:]:
+        try:
+            os.remove(os.path.join(reports_dir, old_file))
+        except Exception as e:
+            logger.error(f"Ошибка удаления старого отчета {old_file}: {e}")
+    
+    return reports_dir
 
 async def export_orders_for_provider(
     update: Update,
@@ -36,9 +73,9 @@ async def export_orders_for_provider(
     Включает детализацию по дням и объектам.
     Учитываются только неотменённые заказы.
     """
-
     try:
         user = update.effective_user
+        reports_dir = ensure_reports_dir('provider')
 
         # Если даты не заданы — используем сегодняшнюю
         if not start_date or not end_date:
@@ -79,7 +116,6 @@ async def export_orders_for_provider(
             total_portions += row[2]
 
         # 2. Лист "Сводка по объектам"
-        valid_locations = {"Офис", "ПЦ 1", "ПЦ 2", "Склад"}
         ws_summary = wb.create_sheet("Сводка по объектам")
         summary_headers = ["Объект", "Количество порций"]
         ws_summary.append(summary_headers)
@@ -97,7 +133,7 @@ async def export_orders_for_provider(
 
         location_data = dict(db.cursor.fetchall())
 
-        for loc in sorted(valid_locations):
+        for loc in sorted(LOCATIONS):  # Используем LOCATIONS из config
             portions = location_data.get(loc, 0)
             ws_summary.append([loc, portions])
 
@@ -114,7 +150,7 @@ async def export_orders_for_provider(
             WHERE o.target_date BETWEEN ? AND ?
               AND o.is_cancelled = FALSE
         ''', (start_date.isoformat(), end_date.isoformat()))
-        unique_locations = [row[0] for row in db.cursor.fetchall() if row[0] in valid_locations]
+        unique_locations = [row[0] for row in db.cursor.fetchall() if row[0] in LOCATIONS]
         locations_count = len(unique_locations)
 
         stats_data = [
@@ -138,10 +174,9 @@ async def export_orders_for_provider(
                 sheet.column_dimensions[column[0].column_letter].width = adjusted_width
 
         # Сохраняем файл
-        file_path = f"provider_report_{start_date.strftime('%Y%m%d')}"
-        if start_date != end_date:
-            file_path += f"_to_{end_date.strftime('%Y%m%d')}"
-        file_path += ".xlsx"
+        timestamp = datetime.now(TIMEZONE).strftime("%Y%m%d_%H%M%S")
+        file_name = f"provider_report_{timestamp}.xlsx"
+        file_path = os.path.join(reports_dir, file_name)
         wb.save(file_path)
 
         # Отправляем файл
@@ -156,7 +191,8 @@ async def export_orders_for_provider(
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=file,
-                caption=caption
+                caption=caption,
+                filename=file_name
             )
 
         return file_path
@@ -166,217 +202,252 @@ async def export_orders_for_provider(
         await update.message.reply_text("❌ Ошибка при формировании отчёта.")
         raise
 
-async def export_accounting_report(update: Update, context: ContextTypes.DEFAULT_TYPE, 
-                                 start_date=None, end_date=None):
-    """Генерация отчёта с правильными датами"""
+async def export_accounting_report(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
+):
+    """Генерация детализированного отчета для бухгалтерии"""
     try:
+        reports_dir = ensure_reports_dir('accounting')
         now = datetime.now(TIMEZONE)
         
-        # Если даты не указаны - отчёт за сегодня
+        # Обработка дат
         if not start_date or not end_date:
-            start_date = now.date()
-            end_date = now.date()
+            start_date = end_date = now.date()
+        else:
+            start_date = start_date if isinstance(start_date, date) else start_date.date()
+            end_date = end_date if isinstance(end_date, date) else end_date.date()
 
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Заказы"
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+
+        # Создаем Excel файл
+        wb = Workbook()
         
-        # Заголовки
-        headers = [
-            "ФИО", "Объект", 
-            "Дата заказа", "Время заказа",  # Когда сделан заказ
-            "Дата обеда",                   # На какую дату заказ
-            "Количество", "Тип заказа", 
-            "Статус"
-        ]
-        ws.append(headers)
+        # 1. Лист "Детализация"
+        ws_detailed = wb.active
+        ws_detailed.title = "Детализация"
+        detailed_headers = ["ФИО", "Объект", "Дата заказа", "Время заказа", "Дата обеда", "Количество", "Тип заказа"]
+        ws_detailed.append(detailed_headers)
+        ws_detailed.auto_filter.ref = "A1:G1"
+        
+        # Получаем данные (только неотмененные заказы)
+        query = '''
+            SELECT 
+                u.full_name,
+                u.location,
+                date(o.created_at) as order_date,
+                time(o.created_at) as order_time,
+                o.target_date,
+                o.quantity,
+                CASE WHEN o.is_preliminary THEN 'Предзаказ' ELSE 'Обычный' END
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.target_date BETWEEN ? AND ?
+              AND o.is_cancelled = FALSE
+              AND u.is_deleted = FALSE
+            ORDER BY o.target_date, u.full_name
+        '''
+        db.cursor.execute(query, (start_date.isoformat(), end_date.isoformat()))
+        
+        total_portions = 0
+        orders_count = 0
+        for row in db.cursor.fetchall():
+            order_date = datetime.strptime(row[2], "%Y-%m-%d").strftime("%d.%m.%Y")
+            target_date = datetime.strptime(row[4], "%Y-%m-%d").strftime("%d.%m.%Y")
+            ws_detailed.append([
+                row[0], row[1], order_date, row[3], target_date, row[5], row[6]
+            ])
+            total_portions += row[5]
+            orders_count += 1
 
-        # Получаем данные
+        # 2. Лист "Сводка по сотрудникам"
+        ws_summary_users = wb.create_sheet("Сводка по сотрудникам")
+        summary_headers = ["ФИО", "Объект", "Всего порций"]
+        ws_summary_users.append(summary_headers)
+        ws_summary_users.auto_filter.ref = "A1:C1"
+        
         db.cursor.execute('''
             SELECT 
                 u.full_name,
                 u.location,
-                date(o.created_at) as target_date,
-                time(o.created_at) as order_time,
-                o.target_date,
-                o.quantity,
-                CASE WHEN o.is_preliminary THEN 'Предзаказ' ELSE 'Обычный' END,
-                CASE WHEN o.is_cancelled THEN 'Отменён' ELSE 'Активен' END
-            FROM orders o
-            JOIN users u ON o.user_id = u.id
-            WHERE date(o.created_at) BETWEEN ? AND ?
-            ORDER BY o.target_date, u.full_name
-        ''', (start_date.isoformat(), end_date.isoformat()))
-
-        for row in db.cursor.fetchall():
-            # Форматируем даты для отчёта
-            formatted_row = list(row)
-            formatted_row[2] = datetime.strptime(row[2], "%Y-%m-%d").strftime("%d.%m.%Y")  # Дата заказа
-            formatted_row[4] = datetime.strptime(row[4], "%Y-%m-%d").strftime("%d.%m.%Y")  # Дата обеда
-            ws.append(formatted_row)
-
-        # Сохраняем и отправляем файл
-        file_path = f"report_{now.strftime('%Y%m%d_%H%M')}.xlsx"
-        wb.save(file_path)
-        
-        with open(file_path, 'rb') as file:
-            await update.message.reply_document(
-                document=file,
-                caption=f"Отчёт за период: {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
-            )
-            
-    except Exception as e:
-        logger.error(f"Ошибка формирования отчёта: {e}")
-        await update.message.reply_text("❌ Ошибка при формировании отчёта")
-        
-# Добавьте эту новую функцию
-async def export_orders_for_month(
-    update: Update = None, 
-    context: ContextTypes.DEFAULT_TYPE = None,
-    start_date: date = None,
-    end_date: date = None,
-    month_offset: int = 0,
-    send_to_providers: bool = False
-):
-    """
-    Генерация отчета за месяц/период
-    :param update: Объект Update (опционально)
-    :param context: Контекст (опционально)
-    :param start_date: Начальная дата (если None - будет месяц)
-    :param end_date: Конечная дата (если None - будет месяц)
-    :param month_offset: Смещение месяца (0 - текущий, -1 - предыдущий)
-    :param send_to_providers: Отправлять ли отчет поставщикам
-    :return: Путь к файлу или None при ошибке
-    """
-    try:
-        now = datetime.now(TIMEZONE)
-        
-        # Определяем период
-        if start_date is None or end_date is None:
-            if month_offset == -1:  # Предыдущий месяц
-                first_day = now.replace(day=1)
-                start_date = (first_day - timedelta(days=1)).replace(day=1)
-                end_date = first_day - timedelta(days=1)
-            else:  # Текущий месяц
-                start_date = now.replace(day=1)
-                end_date = now
-        
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Заказы"
-        
-        # Заголовки
-        headers = ["Объект", "Количество порций"]
-        ws.append(headers)
-        
-        # Получаем данные
-        db.cursor.execute('''
-            SELECT u.location, SUM(o.quantity) AS portions
+                SUM(o.quantity)
             FROM orders o
             JOIN users u ON o.user_id = u.id
             WHERE o.target_date BETWEEN ? AND ?
-            GROUP BY u.location
-            ORDER BY portions DESC
+              AND o.is_cancelled = FALSE
+            GROUP BY u.full_name, u.location
+            ORDER BY SUM(o.quantity) DESC
         ''', (start_date.isoformat(), end_date.isoformat()))
         
-        total = 0
-        for location, portions in db.cursor.fetchall():
-            ws.append([location, portions])
-            total += portions
+        for row in db.cursor.fetchall():
+            ws_summary_users.append(row)
+
+        # 3. Лист "Сводка по объектам"
+        ws_summary_locations = wb.create_sheet("Сводка по объектам")
+        loc_headers = ["Объект", "Порции"]
+        ws_summary_locations.append(loc_headers)
+        ws_summary_locations.auto_filter.ref = "A1:B1"
         
-        ws.append(["ИТОГО", total])
+        db.cursor.execute('''
+            SELECT u.location, SUM(o.quantity)
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.target_date BETWEEN ? AND ?
+              AND o.is_cancelled = FALSE
+            GROUP BY u.location
+            ORDER BY SUM(o.quantity) DESC
+        ''', (start_date.isoformat(), end_date.isoformat()))
         
-        # Автоподбор ширины столбцов
-        for col in ws.columns:
-            max_len = max(len(str(cell.value)) for cell in col)
-            ws.column_dimensions[col[0].column_letter].width = (max_len + 2) * 1.2
+        for row in db.cursor.fetchall():
+            ws_summary_locations.append(row)
+        ws_summary_locations.append(["ВСЕГО", total_portions])
+
+        # 4. Лист "Итоги"
+        ws_stats = wb.create_sheet("Итоги")
+        stats_headers = ["Показатель", "Значение"]
+        ws_stats.append(stats_headers)
         
-        # Сохраняем файл
-        if month_offset != 0:
-            file_path = f"orders_report_{start_date.strftime('%Y-%m')}.xlsx"
-        else:
-            file_path = f"orders_report_{start_date.strftime('%Y-%m-%d')}_to_{end_date.strftime('%Y-%m-%d')}.xlsx"
-        wb.save(file_path)
-        
-        # Если вызывается из обработчика - отправляем отчет
-        if update and context:
-            if send_to_providers:
-                success = 0
-                with open(file_path, 'rb') as file:
-                    for provider_id in CONFIG['provider_ids']:
-                        try:
-                            await context.bot.send_document(
-                                chat_id=provider_id,
-                                document=file,
-                                caption=(
-                                    f"🍽 Заказы за период {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}\n"
-                                    f"📍 Локации | 🍛 Всего: {total} порций"
-                                )
-                            )
-                            success += 1
-                            file.seek(0)
-                        except Exception as e:
-                            logger.error(f"Ошибка отправки поставщику {provider_id}: {e}")
-                
-                await update.message.reply_text(
-                    f"✅ Отчёт готов\n"
-                    f"• Период: {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}\n"
-                    f"• Порций: {total}\n"
-                    f"• Отправлено: {success}/{len(CONFIG['provider_ids'])}"
-                )
-            else:
-                with open(file_path, 'rb') as file:
-                    await update.message.reply_document(
-                        document=file,
-                        caption=f"Отчет за период {start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}"
-                    )
+        db.cursor.execute('''
+            SELECT COUNT(DISTINCT u.id)
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            WHERE o.target_date BETWEEN ? AND ?
+              AND o.is_cancelled = FALSE
+        ''', (start_date.isoformat(), end_date.isoformat()))
+        unique_users = db.cursor.fetchone()[0]
+
+        stats_data = [
+            ["Период", f"{start_date.strftime('%d.%m.%Y')} — {end_date.strftime('%d.%m.%Y')}"],
+            ["Всего заказов", orders_count],
+            ["Всего порций", total_portions],
+            ["Уникальных сотрудников", unique_users],
+            ["Дата формирования", now.strftime("%d.%m.%Y %H:%M")]
+        ]
+        for row in stats_data:
+            ws_stats.append(row)
+
+        # Форматирование
+        bold_font = Font(bold=True)
+        for sheet in wb.worksheets:
+            # Заголовки жирным
+            for row in sheet.iter_rows(min_row=1, max_row=1):
+                for cell in row:
+                    cell.font = bold_font
             
-            return await show_main_menu(update, update.effective_user.id)
-        
+            # Автоподбор ширины столбцов
+            for col in sheet.columns:
+                max_length = max(len(str(cell.value)) for cell in col)
+                sheet.column_dimensions[col[0].column_letter].width = max_length + 2
+
+        # Сохраняем файл
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        file_name = f"accounting_report_{timestamp}.xlsx"
+        file_path = os.path.join(reports_dir, file_name)
+        wb.save(file_path)
+
+        # Отправляем файл
+        caption = (
+            f"📊 Бухгалтерский отчет\n"
+            f"📅 Период: {start_date.strftime('%d.%m.%Y')} — {end_date.strftime('%d.%m.%Y')}\n"
+            f"🍽 Всего порций: {total_portions}\n"
+            f"👥 Уникальных сотрудников: {unique_users}"
+        )
+
+        with open(file_path, 'rb') as file:
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=file,
+                caption=caption,
+                filename=file_name
+            )
+
         return file_path
-        
+
     except Exception as e:
-        logger.error(f"Ошибка формирования отчёта: {e}")
-        if update:
-            await update.message.reply_text("❌ Ошибка при создании отчёта")
-            return await show_main_menu(update, update.effective_user.id)
+        logger.error(f"Ошибка формирования отчета: {e}", exc_info=True)
+        await update.message.reply_text(
+            "❌ Произошла ошибка при создании отчета. Подробности в логах."
+        )
         raise
 
-async def export_monthly_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def export_monthly_report(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
+):
+    """Генерация административного отчёта с возможностью указания дат"""
     try:
         if update.effective_user.id not in CONFIG['admin_ids']:
             await update.message.reply_text("❌ У вас нет прав для выполнения этой команды.")
             return
 
-        wb = openpyxl.Workbook()
+        now = datetime.now(TIMEZONE)
         
-        ws_detailed = wb.active
-        ws_detailed.title = "Детализация"
-        ws_detailed.append(["ФИО", "Локация", "Дата", "Порции", "Тип"])
+        # Если даты не переданы - используем текущий месяц
+        if not start_date or not end_date:
+            month_start = now.replace(day=1).date()
+            end_date = now.date()
+        else:
+            # Проверяем, что start_date <= end_date
+            if start_date > end_date:
+                start_date, end_date = end_date, start_date
+
+        reports_dir = ensure_reports_dir('admin')
+        now = datetime.now(TIMEZONE)
+        month_start = now.replace(day=1).date()
         
+        wb = Workbook()
+        
+        # Удаляем лист по умолчанию, если он есть
+        if 'Sheet' in wb.sheetnames:
+            del wb['Sheet']
+        
+        # Создаем листы для каждой локации
+        for location in LOCATIONS:
+            ws = wb.create_sheet(location)
+            headers = ["Дата обеда", "Сотрудник", "Территориальный признак", "Подпись", "Кол-во обедов", "Тип заказа"]
+            ws.append(headers)
+            ws.auto_filter.ref = f"A1:F1"
+            
+            # Получаем данные для локации (только неотмененные заказы)
+            db.cursor.execute('''
+                SELECT 
+                    o.target_date,
+                    u.full_name,
+                    u.location,
+                    o.quantity,
+                    CASE WHEN o.is_preliminary THEN 'Предзаказ' ELSE 'Обычный' END
+                FROM orders o
+                JOIN users u ON o.user_id = u.id
+                WHERE o.target_date BETWEEN ? AND date('now')
+                  AND u.location = ?
+                  AND o.is_cancelled = FALSE
+                  AND u.is_deleted = FALSE
+                ORDER BY o.target_date, u.full_name
+            ''', (month_start.isoformat(), location))
+            
+            for row in db.cursor.fetchall():
+                target_date = datetime.strptime(row[0], "%Y-%m-%d").strftime("%d.%m.%Y")
+                ws.append([target_date, row[1], row[2], "", row[3], row[4]])  # Пустая колонка для подписи
+        
+        # Лист "Итоги"
         ws_summary = wb.create_sheet("Итоги")
-        ws_summary.append(["Локация", "Порции"])
-        
-        month_start = datetime.now(TIMEZONE).replace(day=1).date()
-        
-        db.cursor.execute('''
-            SELECT u.full_name, u.location, o.target_date, o.quantity, 
-                   CASE WHEN o.is_preliminary THEN 'Предзаказ' ELSE 'Обычный' END
-            FROM orders o
-            JOIN users u ON o.user_id = u.id
-            WHERE o.target_date BETWEEN ? AND date('now')
-            ORDER BY o.target_date, u.location
-        ''', (month_start.isoformat(),))
-        
-        for row in db.cursor.fetchall():
-            ws_detailed.append(row)
+        summary_headers = ["Локация", "Порции"]
+        ws_summary.append(summary_headers)
+        ws_summary.auto_filter.ref = "A1:B1"
         
         db.cursor.execute('''
             SELECT u.location, SUM(o.quantity)
             FROM orders o
             JOIN users u ON o.user_id = u.id
             WHERE o.target_date BETWEEN ? AND date('now')
+              AND o.is_cancelled = FALSE
             GROUP BY u.location
+            ORDER BY SUM(o.quantity) DESC
         ''', (month_start.isoformat(),))
         
         total = 0
@@ -386,26 +457,39 @@ async def export_monthly_report(update: Update, context: ContextTypes.DEFAULT_TY
         
         ws_summary.append(["ВСЕГО", total])
         
+        # Форматирование
+        bold_font = Font(bold=True)
         for sheet in wb.worksheets:
+            # Заголовки жирным
+            for row in sheet.iter_rows(min_row=1, max_row=1):
+                for cell in row:
+                    cell.font = bold_font
+            
+            # Автоподбор ширины столбцов
             for col in sheet.columns:
-                sheet.column_dimensions[col[0].column_letter].width = max(
-                    len(str(cell.value)) * 1.2 for cell in col
-                )
+                max_length = max(len(str(cell.value)) for cell in col)
+                sheet.column_dimensions[col[0].column_letter].width = max_length + 2
 
-        file_path = f"monthly_report_{datetime.now(TIMEZONE).strftime('%Y-%m')}.xlsx"
+        # Сохраняем файл
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        file_name = f"admin_report_{timestamp}.xlsx"
+        file_path = os.path.join(reports_dir, file_name)
         wb.save(file_path)
         
         with open(file_path, 'rb') as file:
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=file,
-                caption=f"📅 Отчёт за {month_start.strftime('%B %Y')}\n"
-                       f"🍽 Всего порций: {total}"
+                caption=f"📅 Админ отчет за {month_start.strftime('%B %Y')}\n"
+                       f"🍽 Всего порций: {total}",
+                filename=file_name
             )
 
     except Exception as e:
-        logger.error(f"Ошибка месячного отчёта: {e}")
+        logger.error(f"Ошибка формирования админ отчёта: {e}")
         await update.message.reply_text("❌ Ошибка формирования отчёта")
+
+# Остальные функции (message_history, handle_export_orders_for_month) остаются без изменений
 
 async def message_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ истории сообщений админам"""

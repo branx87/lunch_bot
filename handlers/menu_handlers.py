@@ -1,8 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram.ext import ContextTypes
 from datetime import datetime, timedelta, date
-import time
 from config import CONFIG, LOCATIONS, TIMEZONE, MENU, ADMIN_IDS
 from db import db
 from utils import (
@@ -15,7 +14,18 @@ from utils import (
     is_order_time_expired,
     is_order_cancelled
 )
-from .states import MAIN_MENU, ORDER_ACTION, SELECT_MONTH_RANGE_STATS
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME, 
+    LOCATION, MAIN_MENU, 
+    ORDER_ACTION, 
+    ORDER_CONFIRMATION, 
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE, 
+    ADMIN_MESSAGE, 
+    AWAIT_USER_SELECTION, 
+    SELECT_MONTH_RANGE_STATS
+)
 from .common import show_main_menu
 from keyboards import create_main_menu_keyboard, create_admin_keyboard
 
@@ -208,7 +218,7 @@ async def show_day_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, day_
 
 # --- Просмотр заказов ---
 async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_cancellation=False):
-    """Показывает активные заказы с рабочей кнопкой главного меню"""
+    """Показывает активные заказы с кнопками отмены"""
     try:
         # Определяем источник вызова
         query = update.callback_query if hasattr(update, 'callback_query') else None
@@ -233,7 +243,7 @@ async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_can
         """, (user_id, today_str))
         active_orders = db.cursor.fetchall()
 
-        # Обработка случая без заказов
+        # Обработка случая, когда заказов нет
         if not active_orders:
             if is_cancellation:
                 text = "✅ Все заказы отменены."
@@ -245,11 +255,10 @@ async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_can
                 await message.reply_text("ℹ️ У вас нет активных заказов.")
             return await show_main_menu(message, user_id)
 
-        # Формируем сообщение
-        response = "📦 <b>Ваши активные заказы:</b>\n\n"
-        response += "<i>Нажмите на заказ, чтобы отменить его</i>\n\n"
+        # Формируем сообщение с кнопками
+        response = "📦 Ваши активные заказы:\n"
         keyboard = []
-        days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+        days_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
         for order in active_orders:
             target_date = datetime.strptime(order[0], "%Y-%m-%d").date()
@@ -261,40 +270,34 @@ async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_can
             keyboard.append([
                 InlineKeyboardButton(
                     f"{day_name} {date_str} - {qty} порц.{status}",
-                    callback_data=f"cancel_order_{target_date.strftime('%Y-%m-%d')}"
+                    callback_data="no_action"
+                ),
+                InlineKeyboardButton(
+                    "❌ Отменить",
+                    callback_data=f"cancel_{target_date.strftime('%Y-%m-%d')}"
                 )
             ])
 
-        # Добавляем кнопку главного меню с простым callback
-        keyboard.append([
-            InlineKeyboardButton(
-                "🏠 В главное меню", 
-                callback_data="back_to_main_menu"
-            )
-        ])
+        # Добавляем кнопку "В главное меню" (исправлено)
+        keyboard.append([InlineKeyboardButton("🔙 В главное меню", callback_data="main_menu")])
 
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        # Отправка или редактирование сообщения
+        # Отправляем или редактируем сообщение
         if query and is_cancellation:
             try:
                 await query.edit_message_text(
                     text=response,
-                    reply_markup=reply_markup,
-                    parse_mode="HTML"
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             except Exception as e:
                 logger.error(f"Ошибка редактирования: {e}")
                 await query.message.reply_text(
                     text=response,
-                    reply_markup=reply_markup,
-                    parse_mode="HTML"
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
         else:
             await message.reply_text(
                 text=response,
-                reply_markup=reply_markup,
-                parse_mode="HTML"
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
     except Exception as e:
@@ -305,6 +308,7 @@ async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_can
         else:
             await message.reply_text(error_msg)
         return await show_main_menu(message, user_id)
+
 
 async def order_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """

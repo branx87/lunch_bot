@@ -1,9 +1,20 @@
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, ConversationHandler
 import logging
 from db import db
-from keyboards import create_main_menu_keyboard
-from .states import MAIN_MENU, FULL_NAME
+from keyboards import create_main_menu_keyboard, create_unverified_user_keyboard
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME, 
+    LOCATION, MAIN_MENU, 
+    ORDER_ACTION, 
+    ORDER_CONFIRMATION, 
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE, 
+    ADMIN_MESSAGE, 
+    AWAIT_USER_SELECTION, 
+    SELECT_MONTH_RANGE_STATS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +33,7 @@ async def show_main_menu(update: Update, user_id: int):
 
         if isinstance(update, Update) and update.message:
             await update.message.reply_text("Главное меню:", reply_markup=reply_markup)
-        return MAIN_MENU
+        return MAIN_MENU 
 
     except Exception as e:
         logger.error(f"Ошибка в show_main_menu: {e}", exc_info=True)

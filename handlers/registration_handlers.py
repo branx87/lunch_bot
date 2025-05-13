@@ -5,7 +5,18 @@ from telegram.ext import ContextTypes, ConversationHandler
 from db import db
 from config import CONFIG, LOCATIONS, ADMIN_IDS  # Добавлен импорт LOCATIONS
 from utils import is_employee
-from .states import PHONE, FULL_NAME, LOCATION, MAIN_MENU
+from .constants import (
+    AWAIT_MESSAGE_TEXT,
+    PHONE, FULL_NAME,
+    LOCATION, MAIN_MENU,
+    ORDER_ACTION,
+    ORDER_CONFIRMATION,
+    SELECT_MONTH_RANGE,
+    BROADCAST_MESSAGE,
+    ADMIN_MESSAGE,
+    AWAIT_USER_SELECTION,
+    SELECT_MONTH_RANGE_STATS
+)
 from .base_handlers import show_main_menu
 from datetime import datetime, timedelta
 
