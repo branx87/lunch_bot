@@ -1,28 +1,25 @@
+# ##handlers/admin_handlers.py
 import logging
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler
-from config import CONFIG
-from keyboards import create_admin_keyboard, create_month_selection_keyboard
-from admin import export_accounting_report
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
-from db import db
+from telegram.ext import ConversationHandler, MessageHandler
+from telegram.ext import ContextTypes
 import asyncio
+
+from config import CONFIG
+from constants import BROADCAST_MESSAGE
+from keyboards import create_admin_keyboard
 
 logger = logging.getLogger(__name__)
 
 async def handle_admin_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора в админ-меню"""
+    """
+    Основной обработчик выбора в админ-меню. 
+    Проверяет права пользователя и перенаправляет на соответствующие действия:
+    - Рассылка сообщений
+    - Генерация отчетов (закомментировано)
+    - Обработка отмены операций
+    Возвращает состояние для продолжения диалога или завершает его.
+    """
     text = update.message.text.strip().lower()
     user = update.effective_user
 
@@ -45,23 +42,23 @@ async def handle_admin_choice(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return ConversationHandler.END  # Заменили ADMIN_MESSAGE
 
-    elif text in ["📊 отчет за день", "отчет за день"]:
-        if user.id in CONFIG.get('admin_ids', []) or user.id in CONFIG.get('accounting_ids', []):
-            await export_accounting_report(update, context)
-        else:
-            await update.message.reply_text("❌ У вас нет прав для просмотра отчетов")
-        return ConversationHandler.END  # Заменили ADMIN_MESSAGE
+    # elif text in ["📊 отчет за день", "отчет за день"]:
+    #     if user.id in CONFIG.get('admin_ids', []) or user.id in CONFIG.get('accounting_ids', []):
+    #         await export_accounting_report(update, context)
+    #     else:
+    #         await update.message.reply_text("❌ У вас нет прав для просмотра отчетов")
+    #     return ConversationHandler.END  # Заменили ADMIN_MESSAGE
 
-    elif text in ["📅 отчет за месяц", "отчет за месяц"]:
-        if user.id in CONFIG.get('admin_ids', []) or user.id in CONFIG.get('accounting_ids', []):
-            await update.message.reply_text(
-                "Выберите период:",
-                reply_markup=create_month_selection_keyboard()
-            )
-            return SELECT_MONTH_RANGE
-        else:
-            await update.message.reply_text("❌ У вас нет прав для просмотра отчетов")
-        return ConversationHandler.END  # Заменили ADMIN_MESSAGE
+    # elif text in ["📅 отчет за месяц", "отчет за месяц"]:
+    #     if user.id in CONFIG.get('admin_ids', []) or user.id in CONFIG.get('accounting_ids', []):
+    #         await update.message.reply_text(
+    #             "Выберите период:",
+    #             reply_markup=create_month_selection_keyboard()
+    #         )
+    #         return SELECT_MONTH_RANGE
+    #     else:
+    #         await update.message.reply_text("❌ У вас нет прав для просмотра отчетов")
+    #     return ConversationHandler.END  # Заменили ADMIN_MESSAGE
 
     # Неизвестная команда
     await update.message.reply_text(

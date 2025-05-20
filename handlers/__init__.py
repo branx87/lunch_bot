@@ -1,73 +1,34 @@
+# ##handlers/__init__.py
 from datetime import datetime, timedelta
+from tracemalloc import start
 from telegram import Update
-from config import CONFIG
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
 from telegram.ext import (
     Application,
     CommandHandler,
-    MessageHandler,  # Добавлен этот импорт
+    MessageHandler,
     CallbackQueryHandler,
     ConversationHandler,
     filters,
-    ContextTypes
+    ContextTypes  # <-- Важно!
 )
 
+from admin import message_history
+from config import CONFIG
+from constants import AWAIT_MESSAGE_TEXT, FULL_NAME, LOCATION, MAIN_MENU, ORDER_ACTION, ORDER_CONFIRMATION, PHONE, SELECT_MONTH_RANGE, SELECT_MONTH_RANGE_STATS
+from handlers.admin_config_handlers import setup_admin_config_handlers
+from handlers.admin_handlers import handle_admin_choice
+from handlers.base_handlers import error_handler, handle_registered_user, handle_text_message, main_menu
+from handlers.callback_handlers import callback_handler, handle_cancel_order
+from handlers.common import show_main_menu
+from handlers.menu_handlers import handle_cancel_from_view, handle_order_confirmation, monthly_stats, monthly_stats_selected
+from handlers.message_handlers import handle_broadcast_command, process_broadcast_message, start_user_to_admin_message
+from handlers.order_callbacks import setup_order_callbacks
+from handlers.provider_handlers import setup_provider_handlers
+from handlers.registration_handlers import get_full_name, get_location, get_phone
+from handlers.report_handlers import select_month_range
+
 # Импорты локальных модулей
-from .common import show_main_menu
-from .message_handlers import (
-    setup_message_handlers,
-    start_user_to_admin_message,
-    process_broadcast_message,
-    handle_broadcast_command,
-    handle_user_message,
-    handle_user_selection,
-    handle_admin_message
-)
-from .base_handlers import (
-    start,
-    error_handler,
-    test_connection,
-    main_menu,
-    handle_text_message,
-    handle_registered_user
-)
-from .registration_handlers import (
-    get_phone,
-    get_full_name,
-    get_location
-)
-from .menu_handlers import (
-    show_today_menu,
-    show_week_menu,
-    view_orders,
-    monthly_stats,
-    handle_order_confirmation,
-    order_action,
-    monthly_stats_selected,
-    handle_cancel_from_view
-)
-from .callback_handlers import (
-    callback_handler,
-    handle_order_callback,
-    handle_change_callback,
-    handle_cancel_callback,
-    handle_cancel_order
-)
-from .admin_handlers import (
-    handle_admin_choice
-)
-from .report_handlers import select_month_range
+
 
 def setup_handlers(application):
     # 1. Обработчик рассылки (добавляется ПЕРВЫМ)
@@ -98,6 +59,24 @@ def setup_handlers(application):
     ))
     
     application.add_handler(CallbackQueryHandler(handle_cancel_order, pattern='^cancel_'))
+    
+    setup_admin_config_handlers(application)
+    setup_provider_handlers(application)
+    
+    # Добавляем обработчики заказов
+    setup_order_callbacks(application)
+    
+    # Явный обработчик для главного меню (добавить ПЕРЕД общим обработчиком текста)
+    application.add_handler(MessageHandler(
+        filters.Regex(r'^(🏠 Главное меню|Вернуться в главное меню)$'),
+        lambda update, context: show_main_menu(update, update.effective_user.id)
+    ))
+    
+    # Добавляем обработчик истории сообщений (перед общим обработчиком текста)
+    application.add_handler(MessageHandler(
+        filters.Regex("^📜 История сообщений$") & filters.User(user_id=CONFIG['admin_ids']),
+        message_history
+    ))
 
     # 2. Основные обработчики сообщений
     from handlers.message_handlers import setup_message_handlers
@@ -116,6 +95,12 @@ def setup_handlers(application):
                 MessageHandler(
                     filters.Regex("^(Текущий месяц|Прошлый месяц|Вернуться в главное меню)$"),
                     monthly_stats_selected
+                )
+            ],
+            SELECT_MONTH_RANGE: [
+                MessageHandler(
+                    filters.Regex(r'^(Текущий месяц|Прошлый месяц|Вернуться в главное меню)$'),
+                    select_month_range
                 )
             ],
             PHONE: [MessageHandler(filters.CONTACT, get_phone)],
@@ -146,12 +131,14 @@ def setup_handlers(application):
         filters.TEXT & ~filters.COMMAND & filters.Regex(
             r'^(Меню на сегодня|Меню на неделю|Просмотреть заказы|Статистика за месяц|'
             r'💰 Бухгалтерский отчет|📦 Отчет поставщика|'
-            r'📊 Отчет за день|📅 Отчет за месяц|Обновить меню|Вернуться в главное меню)$'
+            r'📊 Отчет за день|📅 Отчет за месяц|Обновить меню|'
+            r'Вернуться в главное меню|🏠 Главное меню)$'
         ),
         handle_registered_user
     ))
 
-    # 5. CallbackQueryHandler
+
+    # 5. CallbackQueryHandler (этот обработчик должен быть ПОСЛЕ setup_order_callbacks)
     application.add_handler(CallbackQueryHandler(callback_handler))
 
     # 6. Обработчик всех текстовых сообщений (кроме команд)

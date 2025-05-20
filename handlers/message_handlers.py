@@ -1,27 +1,23 @@
+# ##handlers/message_handlers.py
 import logging
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ContextTypes, ConversationHandler, MessageHandler, filters, CommandHandler
-from db import db
-from config import CONFIG
-from keyboards import create_main_menu_keyboard, create_admin_keyboard
+from telegram.ext import ConversationHandler, MessageHandler, filters, CommandHandler
+from telegram.ext import ContextTypes
 import asyncio
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
+
+from config import CONFIG
+from constants import AWAIT_MESSAGE_TEXT, AWAIT_USER_SELECTION
+from db import db
+from keyboards import create_admin_keyboard, create_main_menu_keyboard
+
 
 logger = logging.getLogger(__name__)
 
 async def start_user_to_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Начало диалога пользователя с админом"""
+    """
+    Инициирует процесс отправки сообщения от пользователя администратору.
+    Проверяет регистрацию пользователя и переводит в состояние ожидания текста сообщения.
+    """
     user = update.effective_user
     
     # Проверяем регистрацию пользователя
@@ -46,7 +42,11 @@ async def start_user_to_admin_message(update: Update, context: ContextTypes.DEFA
     return AWAIT_MESSAGE_TEXT
 
 async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка сообщения от пользователя админам"""
+    """
+    Обрабатывает текст сообщения от пользователя администраторам.
+    Сохраняет сообщение в БД и рассылает всем администраторам.
+    Форматирует сообщение с информацией о пользователе (имя, username, ID).
+    """
     try:
         user = update.effective_user
         message_text = update.message.text
@@ -111,7 +111,10 @@ async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         return ConversationHandler.END
 
 async def start_admin_to_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Админ начинает диалог с пользователем"""
+    """
+    Инициирует процесс отправки сообщения администратором пользователю.
+    Проверяет права администратора и запрашивает данные получателя (ID, username или ФИО).
+    """
     if update.effective_user.id not in CONFIG['admin_ids']:
         await update.message.reply_text("❌ У вас нет прав для этой операции")
         return ConversationHandler.END
@@ -129,7 +132,11 @@ async def start_admin_to_user_message(update: Update, context: ContextTypes.DEFA
     return AWAIT_USER_SELECTION
 
 async def handle_user_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора пользователя админом"""
+    """
+    Обрабатывает выбор пользователя администратором.
+    Поддерживает поиск по ID, username или ФИО (точное или частичное совпадение).
+    При множественных результатах предлагает выбор из списка.
+    """
     user_input = update.message.text.strip()
     
     # Проверка на отмену
@@ -141,7 +148,30 @@ async def handle_user_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return ConversationHandler.END
 
     try:
-        # Поиск пользователя в БД
+        # Если есть список найденных пользователей (после выбора из нескольких)
+        if 'found_users' in context.user_data:
+            # Пытаемся найти выбранного пользователя в списке
+            for user_id, full_name in context.user_data['found_users']:
+                if user_input == f"{full_name} (ID: {user_id})":
+                    context.user_data['recipient_id'] = user_id
+                    context.user_data['recipient_name'] = full_name
+                    del context.user_data['found_users']  # Очищаем временные данные
+                    
+                    await update.message.reply_text(
+                        f"Выбран пользователь: {full_name}\n"
+                        "Введите сообщение или нажмите 'Отмена':",
+                        reply_markup=ReplyKeyboardMarkup([["❌ Отмена"]], resize_keyboard=True)
+                    )
+                    return AWAIT_MESSAGE_TEXT
+            
+            # Если не нашли совпадение
+            await update.message.reply_text(
+                "❌ Пользователь не найден. Выберите из списка или нажмите 'Отмена'",
+                reply_markup=ReplyKeyboardMarkup([["❌ Отмена"]], resize_keyboard=True)
+            )
+            return AWAIT_USER_SELECTION
+
+        # Поиск пользователя в БД (первоначальный ввод)
         query = """
             SELECT telegram_id, full_name 
             FROM users 
@@ -206,7 +236,10 @@ async def handle_user_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return AWAIT_USER_SELECTION
 
 async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отправка сообщения от админа пользователю"""
+    """
+    Отправляет сообщение от администратора выбранному пользователю.
+    Сохраняет сообщение в БД и уведомляет администратора о результате отправки.
+    """
     try:
         text = update.message.text.strip()
         
@@ -269,46 +302,11 @@ async def handle_admin_message(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return ConversationHandler.END
 
-def setup_message_handlers(application):
-    """Настройка обработчиков сообщений"""
-    # Диалог пользователя с админами
-    user_conv = ConversationHandler(
-        entry_points=[MessageHandler(
-            filters.Regex("^Написать администратору$") & filters.TEXT,
-            start_user_to_admin_message
-        )],
-        states={
-            AWAIT_MESSAGE_TEXT: [MessageHandler(filters.TEXT, handle_user_message)]
-        },
-        fallbacks=[
-            CommandHandler('cancel', lambda u, c: ConversationHandler.END),
-            MessageHandler(filters.Regex("^❌ Отменить$"), lambda u, c: ConversationHandler.END)
-        ],
-        allow_reentry=True
-    )
-
-    # Диалог админа с пользователем
-    admin_conv = ConversationHandler(
-        entry_points=[MessageHandler(
-            filters.Regex("^✉️ Написать пользователю$") & filters.TEXT,
-            start_admin_to_user_message
-        )],
-        states={
-            AWAIT_USER_SELECTION: [MessageHandler(filters.TEXT, handle_user_selection)],
-            AWAIT_MESSAGE_TEXT: [MessageHandler(filters.TEXT, handle_admin_message)]
-        },
-        fallbacks=[
-            CommandHandler('cancel', lambda u, c: ConversationHandler.END),
-            MessageHandler(filters.Regex("^❌ Отменить$"), lambda u, c: ConversationHandler.END)
-        ],
-        allow_reentry=True
-    )
-
-    application.add_handler(user_conv)
-    application.add_handler(admin_conv)
-
 async def handle_broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка команды рассылки"""
+    """
+    Инициирует процесс массовой рассылки сообщений.
+    Проверяет права администратора и переводит в состояние ожидания текста рассылки.
+    """
     if update.effective_user.id not in CONFIG['admin_ids']:
         logger.warning(f"Попытка рассылки от неадмина: {update.effective_user.id}")
         await update.message.reply_text("❌ У вас нет прав для этой команды")
@@ -322,7 +320,11 @@ async def handle_broadcast_command(update: Update, context: ContextTypes.DEFAULT
     return AWAIT_MESSAGE_TEXT
 
 async def process_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка текста рассылки"""
+    """
+    Выполняет массовую рассылку сообщения всем верифицированным пользователям.
+    Формирует отчет об успешных/неудачных отправках.
+    Обрабатывает отмену рассылки.
+    """
     text = update.message.text
     logger.info(f"Получен текст для рассылки: {text}")
     
@@ -381,3 +383,46 @@ async def process_broadcast_message(update: Update, context: ContextTypes.DEFAUL
         await update.message.reply_text("❌ Ошибка при рассылке")
     
     return ConversationHandler.END
+
+def setup_message_handlers(application):
+    """
+    Настраивает и добавляет обработчики сообщений в приложение:
+    - Диалог пользователя с администраторами
+    - Диалог администратора с пользователями
+    Обеспечивает обработку отмены и повторного входа в диалог.
+    """
+    # Диалог пользователя с админами
+    user_conv = ConversationHandler(
+        entry_points=[MessageHandler(
+            filters.Regex("^Написать администратору$") & filters.TEXT,
+            start_user_to_admin_message
+        )],
+        states={
+            AWAIT_MESSAGE_TEXT: [MessageHandler(filters.TEXT, handle_user_message)]
+        },
+        fallbacks=[
+            CommandHandler('cancel', lambda u, c: ConversationHandler.END),
+            MessageHandler(filters.Regex("^❌ Отменить$"), lambda u, c: ConversationHandler.END)
+        ],
+        allow_reentry=True
+    )
+
+    # Диалог админа с пользователем
+    admin_conv = ConversationHandler(
+        entry_points=[MessageHandler(
+            filters.Regex("^✉️ Написать пользователю$") & filters.TEXT,
+            start_admin_to_user_message
+        )],
+        states={
+            AWAIT_USER_SELECTION: [MessageHandler(filters.TEXT, handle_user_selection)],
+            AWAIT_MESSAGE_TEXT: [MessageHandler(filters.TEXT, handle_admin_message)]
+        },
+        fallbacks=[
+            CommandHandler('cancel', lambda u, c: ConversationHandler.END),
+            MessageHandler(filters.Regex("^❌ Отменить$"), lambda u, c: ConversationHandler.END)
+        ],
+        allow_reentry=True
+    )
+
+    application.add_handler(user_conv)
+    application.add_handler(admin_conv)

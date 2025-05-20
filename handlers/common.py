@@ -1,20 +1,13 @@
+# ##handlers/common.py
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram.ext import ConversationHandler
+from telegram.ext import ContextTypes  # вместо ContextType
 import logging
+
+from constants import MAIN_MENU
 from db import db
 from keyboards import create_main_menu_keyboard, create_unverified_user_keyboard
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
+
 
 logger = logging.getLogger(__name__)
 

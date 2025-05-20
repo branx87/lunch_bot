@@ -1,37 +1,26 @@
+# ##handlers/menu_handlers.py
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ContextTypes
 from datetime import datetime, timedelta, date
-from config import CONFIG, LOCATIONS, TIMEZONE, MENU, ADMIN_IDS
+
+from config import CONFIG, MENU, TIMEZONE
+from constants import SELECT_MONTH_RANGE_STATS
 from db import db
-from utils import (
-    is_employee,
-    get_menu_for_day,
-    format_menu,
-    check_registration,
-    handle_unregistered,
-    can_modify_order,
-    is_order_time_expired,
-    is_order_cancelled
-)
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
-from .common import show_main_menu
-from keyboards import create_main_menu_keyboard, create_admin_keyboard
+from handlers.common import show_main_menu
+from handlers.common_handlers import view_orders
+from utils import can_modify_order, check_registration, format_menu, handle_unregistered
+from view_utils import refresh_orders_view
+
 
 logger = logging.getLogger(__name__)
 
 async def show_today_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Отображает меню на текущий день с возможностью заказа/изменения/отмены.
+    Проверяет регистрацию пользователя и временные ограничения на изменения.
+    Формирует интерактивное сообщение с соответствующими кнопками действий.
+    """
     if not await check_registration(update, context):
         return await handle_unregistered(update, context)
     
@@ -82,6 +71,14 @@ async def show_today_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await show_main_menu(update, user_id)
 
 async def show_week_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Отображает меню на всю неделю (7 дней) с учетом выходных и праздников.
+    Для каждого дня показывает:
+    - Состав меню
+    - Статус заказа пользователя (если есть)
+    - Кнопки для заказа/изменения (если разрешено временными рамками)
+    Обрабатывает случаи отсутствия меню на определенные дни.
+    """
     try:
         user = update.effective_user
         now = datetime.now(TIMEZONE)
@@ -150,7 +147,15 @@ async def show_week_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
 async def show_day_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, day_offset=0):
-    """Показывает меню на указанный день с возможностью заказа"""
+    """
+    Отображает меню на конкретный день (сегодня/завтра/другой день).
+    Параметры:
+    - day_offset: смещение в днях от текущей даты (0 - сегодня, 1 - завтра и т.д.)
+    Формирует сообщение с:
+    - Подробным описанием меню
+    - Информацией о текущем заказе (если есть)
+    - Кнопками действий (заказ/изменение/отмена)
+    """
     try:
         user = update.effective_user
         now = datetime.now(TIMEZONE)
@@ -216,106 +221,13 @@ async def show_day_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, day_
         logger.error(f"Ошибка в show_day_menu: {e}")
         await update.message.reply_text("⚠️ Ошибка загрузки меню")
 
-# --- Просмотр заказов ---
-async def view_orders(update: Update, context: ContextTypes.DEFAULT_TYPE, is_cancellation=False):
-    """Показывает активные заказы с кнопками отмены"""
-    try:
-        # Определяем источник вызова
-        query = update.callback_query if hasattr(update, 'callback_query') else None
-        message = query.message if query else update.message
-        user = query.from_user if query else update.effective_user
-        
-        if not message or not user:
-            logger.error("Не удалось определить сообщение или пользователя")
-            return
-
-        user_id = user.id
-        today_str = datetime.now(TIMEZONE).date().isoformat()
-
-        # Получаем активные заказы
-        db.cursor.execute("""
-            SELECT target_date, quantity, is_preliminary
-            FROM orders 
-            WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)
-            AND is_cancelled = FALSE
-            AND target_date >= ?
-            ORDER BY target_date
-        """, (user_id, today_str))
-        active_orders = db.cursor.fetchall()
-
-        # Обработка случая, когда заказов нет
-        if not active_orders:
-            if is_cancellation:
-                text = "✅ Все заказы отменены."
-                if query:
-                    await query.edit_message_text(text)
-                else:
-                    await message.reply_text(text)
-            else:
-                await message.reply_text("ℹ️ У вас нет активных заказов.")
-            return await show_main_menu(message, user_id)
-
-        # Формируем сообщение с кнопками
-        response = "📦 Ваши активные заказы:\n"
-        keyboard = []
-        days_ru = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-
-        for order in active_orders:
-            target_date = datetime.strptime(order[0], "%Y-%m-%d").date()
-            day_name = days_ru[target_date.weekday()]
-            date_str = target_date.strftime('%d.%m')
-            qty = order[1]
-            status = " (предв.)" if order[2] else ""
-
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"{day_name} {date_str} - {qty} порц.{status}",
-                    callback_data="no_action"
-                ),
-                InlineKeyboardButton(
-                    "❌ Отменить",
-                    callback_data=f"cancel_{target_date.strftime('%Y-%m-%d')}"
-                )
-            ])
-
-        # Добавляем кнопку "В главное меню" (исправлено)
-        keyboard.append([InlineKeyboardButton("🔙 В главное меню", callback_data="main_menu")])
-
-        # Отправляем или редактируем сообщение
-        if query and is_cancellation:
-            try:
-                await query.edit_message_text(
-                    text=response,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-            except Exception as e:
-                logger.error(f"Ошибка редактирования: {e}")
-                await query.message.reply_text(
-                    text=response,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-        else:
-            await message.reply_text(
-                text=response,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-
-    except Exception as e:
-        logger.error(f"Ошибка в view_orders: {e}")
-        error_msg = "⚠️ Ошибка загрузки заказов"
-        if query:
-            await query.message.reply_text(error_msg)
-        else:
-            await message.reply_text(error_msg)
-        return await show_main_menu(message, user_id)
-
-
 async def order_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Обработчик действий с заказами:
-    - Отмена заказа (cancel_...)
-    - Изменение количества порций (change_...)
-    - Подтверждение заказа (confirm_...)
+    Центральный обработчик действий с заказами. Разбирает callback-запросы и:
+    - Отменяет заказы (проверяя временные ограничения)
+    - Изменяет количество порций (заглушка)
+    - Подтверждает заказы (заглушка)
+    Обновляет интерфейс после выполнения действий.
     """
     try:
         query = update.callback_query
@@ -410,7 +322,11 @@ async def order_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("⚠️ Серверная ошибка", show_alert=True)
 
 async def monthly_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показывает меню выбора месяца для статистики."""
+    """
+    Инициирует процесс просмотра статистики заказов.
+    Предлагает пользователю выбрать период (текущий/прошлый месяц)
+    и переходит в состояние ожидания выбора.
+    """
     try:
         user = update.effective_user
         reply_markup = ReplyKeyboardMarkup(
@@ -429,7 +345,12 @@ async def monthly_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await show_main_menu(update, user.id)
 
 async def monthly_stats_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка выбора месяца и вывод статистики."""
+    """
+    Обрабатывает выбор месяца для статистики. Вычисляет и показывает:
+    - Общее количество заказанных порций за месяц
+    - Информационное сообщение, если заказов нет
+    Автоматически определяет границы выбранного месяца.
+    """
     try:
         user = update.effective_user
         text = update.message.text.strip()
@@ -497,6 +418,13 @@ async def monthly_stats_selected(update: Update, context: ContextTypes.DEFAULT_T
         return await show_main_menu(update, user.id)
     
 async def handle_order_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обрабатывает подтверждение предварительного заказа.
+    Создает запись в БД с флагом is_preliminary=True.
+    Особые случаи:
+    - В пятницу заказ создается на понедельник
+    - Подтверждение только при ответе "Да"
+    """
     try:
         text = update.message.text
         user = update.effective_user
@@ -524,6 +452,11 @@ async def handle_order_confirmation(update: Update, context: ContextTypes.DEFAUL
         return await show_main_menu(update, user.id)
 
 async def handle_cancel_from_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обрабатывает отмену заказа из списка заказов.
+    Проверяет возможность отмены (временные ограничения),
+    обновляет статус в БД и обновляет интерфейс списка заказов.
+    """
     query = update.callback_query
     await query.answer()
     

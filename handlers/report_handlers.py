@@ -1,56 +1,51 @@
-# report_handlers.py
+# ##handlers/report_handlers.py
 import logging
 from datetime import date, datetime, timedelta
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
+
 from config import CONFIG, TIMEZONE
-from keyboards import create_main_menu_keyboard
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME,
-    LOCATION, MAIN_MENU,
-    ORDER_ACTION,
-    ORDER_CONFIRMATION,
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE,
-    ADMIN_MESSAGE,
-    AWAIT_USER_SELECTION,
-    SELECT_MONTH_RANGE_STATS
-)
+from constants import SELECT_MONTH_RANGE
+from handlers.common import show_main_menu
+from report_generators import export_accounting_report, export_daily_admin_report, export_monthly_report, export_orders_for_provider
 
 logger = logging.getLogger(__name__)
 
-async def handle_report_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик запросов отчетов"""
-    from admin import export_orders_for_provider, export_accounting_report, export_monthly_report
-    user_id = update.effective_user.id
-    text = update.message.text
+# async def handle_report_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """Обработчик запросов отчетов"""
+#     from admin import export_orders_for_provider, export_accounting_report, export_monthly_report
+#     user_id = update.effective_user.id
+#     text = update.message.text
     
-    if text == "📊 Отчет за день":
-        today = datetime.now(TIMEZONE).date()
-        await generate_report(update, context, user_id, today, today)
-    elif text == "📅 Отчет за месяц":
-        await update.message.reply_text(
-            "Выберите период:",
-            reply_markup=ReplyKeyboardMarkup([
-                ["Текущий месяц", "Прошлый месяц"],
-                ["Вернуться в главное меню"]
-            ], resize_keyboard=True)
-        )
-        return SELECT_MONTH_RANGE
+#     if text == "📊 Отчет за день":
+#         today = datetime.now(TIMEZONE).date()
+#         await generate_report(update, context, user_id, today, today)
+#     elif text == "📅 Отчет за месяц":
+#         await update.message.reply_text(
+#             "Выберите период:",
+#             reply_markup=ReplyKeyboardMarkup([
+#                 ["Текущий месяц", "Прошлый месяц"],
+#                 ["Вернуться в главное меню"]
+#             ], resize_keyboard=True)
+#         )
+#         return SELECT_MONTH_RANGE
 
 async def select_month_range(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик выбора периода"""
-    from admin import export_orders_for_provider, export_accounting_report, export_monthly_report
+    """
+    Обрабатывает выбор временного периода для генерации отчетов.
+    Определяет временной диапазон (текущий/прошлый месяц) на основе выбора пользователя.
+    В зависимости от типа отчета (report_type) вызывает соответствующий генератор отчетов.
+    Возвращает пользователя в главное меню после завершения.
+    """
     try:
-        user_id = update.effective_user.id
+        user = update.effective_user
         text = update.message.text
         
         if text == "Вернуться в главное меню":
-            from .common import show_main_menu
-            return await show_main_menu(update, user_id)
+            return await show_main_menu(update, user.id)
 
         now = datetime.now(TIMEZONE)
+        
         if text == "Текущий месяц":
             start_date = now.replace(day=1).date()
             end_date = now.date()
@@ -60,21 +55,40 @@ async def select_month_range(update: Update, context: ContextTypes.DEFAULT_TYPE)
             start_date = last_day_prev_month.replace(day=1).date()
             end_date = last_day_prev_month.date()
         else:
-            await update.message.reply_text("Пожалуйста, выберите период")
+            await update.message.reply_text("❌ Пожалуйста, выберите период из предложенных вариантов")
             return SELECT_MONTH_RANGE
 
-        await generate_report(update, context, user_id, start_date, end_date)
-        from .common import show_main_menu
-        return await show_main_menu(update, user_id)
+        report_type = context.user_data.get('report_type')
+        
+        try:
+            if report_type == 'admin':
+                await export_monthly_report(update, context, start_date, end_date)
+            elif report_type == 'accounting':
+                await export_accounting_report(update, context, start_date, end_date)
+            elif report_type == 'provider':
+                await export_orders_for_provider(update, context, start_date, end_date)
+            else:
+                await update.message.reply_text("❌ Неизвестный тип отчета")
+        except Exception as e:
+            logger.error(f"Ошибка генерации отчета {report_type}: {e}", exc_info=True)
+            await update.message.reply_text("❌ Ошибка при формировании отчета")
+
+        return await show_main_menu(update, user.id)
+        
     except Exception as e:
-        logger.error(f"Ошибка: {e}", exc_info=True)
-        await update.message.reply_text("⚠️ Ошибка формирования отчета")
-        from .common import show_main_menu
-        return await show_main_menu(update, user_id)
+        logger.error(f"Ошибка в select_month_range: {e}", exc_info=True)
+        await update.message.reply_text("❌ Произошла ошибка при формировании отчета")
+        return await show_main_menu(update, user.id)
 
 async def generate_report(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                          user_id: int, start_date: date, end_date: date):
-    """Генерация отчета"""
+    """
+    Генерирует отчеты в зависимости от роли пользователя:
+    - Администраторы: полный месячный отчет (export_monthly_report)
+    - Бухгалтеры: бухгалтерский отчет (export_accounting_report)
+    - Поставщики: отчет по заказам (export_orders_for_provider)
+    Обрабатывает ошибки генерации и проверяет права доступа.
+    """
     from admin import export_orders_for_provider, export_accounting_report, export_monthly_report
     try:
         if user_id in CONFIG.get('admin_ids', []):
@@ -88,3 +102,45 @@ async def generate_report(update: Update, context: ContextTypes.DEFAULT_TYPE,
     except Exception as e:
         logger.error(f"Ошибка: {e}", exc_info=True)
         await update.message.reply_text("❌ Ошибка отчета")
+
+async def send_admin_daily_report(application):
+    """
+    Автоматически отправляет ежедневный отчет администраторам.
+    Использует временные объекты Update и Context для интеграции с существующей системой отчетов.
+    Логирует результаты отправки каждому администратору.
+    Вызывается по расписанию из внешнего планировщика задач.
+    """
+    try:
+        logger.info("Запуск отправки дневного админ отчета")
+        
+        now = datetime.now(TIMEZONE)
+        today = now.date()
+        
+        # Создаем временный объект Update для передачи в функцию отчета
+        class FakeUpdate:
+            def __init__(self, bot, chat_id):
+                self.effective_user = type('', (), {'id': 0})()  # Заглушка для user.id
+                self.effective_chat = type('', (), {'id': chat_id})()
+                self.message = type('', (), {'text': ''})()  # Заглушка
+        
+        # Создаем временный контекст
+        class FakeContext:
+            def __init__(self, bot):
+                self.bot = bot
+        
+        fake_context = FakeContext(application.bot)
+        
+        # Отправляем каждому админу
+        success = 0
+        for admin_id in CONFIG.get('admin_ids', []):
+            try:
+                fake_update = FakeUpdate(application.bot, admin_id)
+                await export_daily_admin_report(fake_update, fake_context, today)
+                success += 1
+            except Exception as e:
+                logger.error(f"Ошибка отправки админского отчета админу {admin_id}: {e}")
+        
+        logger.info(f"Отправлено {success}/{len(CONFIG.get('admin_ids', []))} админам")
+        
+    except Exception as e:
+        logger.error(f"Ошибка в send_admin_daily_report: {e}")

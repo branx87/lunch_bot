@@ -1,28 +1,26 @@
+# ##handlers/registration_handlers.py
 import sqlite3
 import logging
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ContextTypes, ConversationHandler
-from db import db
-from config import CONFIG, LOCATIONS, ADMIN_IDS  # Добавлен импорт LOCATIONS
-from utils import is_employee
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME,
-    LOCATION, MAIN_MENU,
-    ORDER_ACTION,
-    ORDER_CONFIRMATION,
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE,
-    ADMIN_MESSAGE,
-    AWAIT_USER_SELECTION,
-    SELECT_MONTH_RANGE_STATS
-)
-from .base_handlers import show_main_menu
+from telegram.ext import ConversationHandler
+from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
+
+from config import LOCATIONS
+from constants import FULL_NAME, LOCATION, PHONE
+from db import db
+from handlers.common import show_main_menu
+from handlers.message_handlers import handle_admin_message
+from utils import is_employee
 
 logger = logging.getLogger(__name__)
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обрабатывает получение номера телефона пользователя.
+    Проверяет формат номера и его уникальность в системе.
+    Переводит в состояние FULL_NAME при успешной валидации.
+    """
     try:
         if not update.message.contact:
             keyboard = [[KeyboardButton("📱 Отправить номер телефона", request_contact=True)]]
@@ -52,7 +50,14 @@ async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return PHONE
 
 async def get_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Получает и проверяет ФИО пользователя."""
+    """
+    Обрабатывает ввод ФИО пользователя.
+    Проверяет:
+    - Формат ввода (минимум 2 слова)
+    - Наличие в списке сотрудников
+    - Уникальность в системе
+    Переводит в состояние LOCATION при успешной проверке.
+    """
     try:
         user_input = update.message.text.strip()
         logger.info(f"Получено имя: '{user_input}' от пользователя {update.effective_user.id}")
@@ -120,6 +125,13 @@ async def get_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Завершает процесс регистрации:
+    - Проверяет выбор локации из доступных
+    - Сохраняет все данные пользователя в БД
+    - Переводит в главное меню после успешной регистрации
+    Обрабатывает возможные ошибки уникальности записи.
+    """
     try:
         user_id = update.effective_user.id
         

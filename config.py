@@ -1,11 +1,16 @@
+# ##config.py
 import os
 import openpyxl
 import pytz
 import logging
 import json
 from datetime import datetime
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+# Загружаем переменные из .env
+load_dotenv()
 
 # Общие настройки
 TIMEZONE = pytz.timezone('Europe/Moscow')
@@ -14,20 +19,21 @@ LOCATIONS = ["Офис", "ПЦ 1", "ПЦ 2", "Склад"]
 
 def load_config():
     try:
+        # Загружаем настройки из .env
+        token = os.getenv('BOT_TOKEN')
+        if not token:
+            raise ValueError("Токен бота не указан в .env файле")
+        
+        admin_ids = [int(id_str) for id_str in os.getenv('ADMIN_IDS', '').split(',') if id_str]
+        provider_ids = [int(id_str) for id_str in os.getenv('PROVIDER_IDS', '').split(',') if id_str]
+        accounting_ids = [int(id_str) for id_str in os.getenv('ACCOUNTING_IDS', '').split(',') if id_str]
+        
+        # Остальные настройки загружаем из Excel
         if not os.path.exists(CONFIG_FILE):
             raise FileNotFoundError(f"Файл конфигурации {CONFIG_FILE} не найден")
         
         wb = openpyxl.load_workbook(CONFIG_FILE)
         ws = wb.active
-        
-        # Основные настройки (токен, ID)
-        token = ws['A2'].value
-        if not token:
-            raise ValueError("Токен бота не указан в ячейке A2")
-        
-        admin_ids = [int(cell.value) for cell in ws['B'][1:] if cell.value is not None]
-        provider_ids = [int(cell.value) for cell in ws['C'][1:] if cell.value is not None]
-        accounting_ids = [int(cell.value) for cell in ws['D'][1:] if cell.value is not None]
         
         # Сотрудники (столбец G)
         staff_names = set()
@@ -115,41 +121,7 @@ def load_config():
         logger.error(f"Критическая ошибка загрузки конфигурации: {e}", exc_info=True)
         raise
 
-def parse_menu_text(menu_text):
-    """Парсит текстовое меню в структуру MENU"""
-    menu = {}
-    current_day = None
-    dish_type = 0  # 0=first, 1=main, 2=salad
-    
-    for line in menu_text.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-            
-        if line in ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]:
-            current_day = line
-            menu[current_day] = {"first": "", "main": "", "salad": ""}
-            dish_type = 0
-        elif current_day:
-            if dish_type == 0:
-                menu[current_day]["first"] = line
-                dish_type += 1
-            elif dish_type == 1:
-                menu[current_day]["main"] = line
-                dish_type += 1
-            elif dish_type == 2:
-                menu[current_day]["salad"] = line
-                dish_type = 0
-    
-    # Добавляем отсутствующие дни как None
-    all_days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-    for day in all_days:
-        if day not in menu:
-            menu[day] = None
-            
-    return menu
-
-# Загружаем конфигурацию при старте
+# Инициализация конфигурации ДОЛЖНА БЫТЬ ВНЕ функции load_config()
 try:
     CONFIG = load_config()
     TOKEN = CONFIG['token']

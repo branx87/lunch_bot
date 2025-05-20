@@ -1,3 +1,4 @@
+# ##keyboards.py
 from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from config import CONFIG, LOCATIONS
 
@@ -52,9 +53,24 @@ def create_order_keyboard(has_order):
     return [[InlineKeyboardButton("✅ Заказать", callback_data="order")]]
 
 def create_admin_keyboard():
+    """Основная клавиатура админа"""
     return ReplyKeyboardMarkup([
-        ["📊 Отчет за день", "📅 Отчет за месяц"],
+        ["⚙️ Управление конфигурацией", "📜 История сообщений"],
         ["✉️ Написать пользователю", "📢 Сделать рассылку"],
-        ["📜 История сообщений"],
+        ["🏠 Главное меню"]
+    ], resize_keyboard=True)
+
+def create_admin_config_keyboard():
+    """Клавиатура управления конфигурацией"""
+    return ReplyKeyboardMarkup([
+        ["➕ Добавить администратора", "➕ Добавить поставщика"],
+        ["➕ Добавить бухгалтера", "➕ Добавить сотрудника"],
+        ["➕ Добавить праздник"],
+        ["🏠 Главное меню"]
+    ], resize_keyboard=True)
+
+def create_provider_menu_keyboard():
+    return ReplyKeyboardMarkup([
+        ["✏️ Изменить меню"],
         ["🏠 Главное меню"]
     ], resize_keyboard=True)

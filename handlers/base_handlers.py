@@ -1,41 +1,38 @@
+# ##handlers/base_handlers.py
 import logging
 import asyncio
 from telegram import Update, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ConversationHandler, ContextTypes
-from .constants import (
-    AWAIT_MESSAGE_TEXT,
-    PHONE, FULL_NAME, 
-    LOCATION, MAIN_MENU, 
-    ORDER_ACTION, 
-    ORDER_CONFIRMATION, 
-    SELECT_MONTH_RANGE,
-    BROADCAST_MESSAGE, 
-    ADMIN_MESSAGE, 
-    AWAIT_USER_SELECTION, 
-    SELECT_MONTH_RANGE_STATS
-)
-from db import db
-from config import CONFIG, ADMIN_IDS
-from keyboards import create_main_menu_keyboard
-from utils import check_registration, handle_unregistered
-from .menu_handlers import show_today_menu, show_week_menu, view_orders, monthly_stats
+from telegram.ext import ConversationHandler
+from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
-from .common import show_main_menu
-from .report_handlers import select_month_range
-from admin import export_accounting_report
-from .message_handlers import process_broadcast_message
+
+from config import ADMIN_IDS, CONFIG, TIMEZONE
+from constants import FULL_NAME, PHONE, SELECT_MONTH_RANGE
+from db import db
+from handlers.common import show_main_menu
+from handlers.common_handlers import view_orders
+from handlers.menu_handlers import monthly_stats, show_today_menu, show_week_menu
+from handlers.report_handlers import select_month_range
+from keyboards import create_main_menu_keyboard
+from report_generators import export_accounting_report, export_daily_admin_report, export_daily_orders_for_provider
+from utils import check_registration, handle_unregistered
+
 
 logger = logging.getLogger(__name__)
 
 __all__ = ['start', 'error_handler', 'test_connection', 'main_menu', 'handle_text_message']
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обработчик команды /start. Проверяет регистрацию пользователя:
+    - Для новых пользователей запрашивает номер телефона
+    - Для незавершивших регистрацию очищает данные и запрашивает повторно
+    - Для зарегистрированных пользователей показывает главное меню
+    """
     await update.message.reply_text("Обновляю меню...", reply_markup=ReplyKeyboardRemove())
     user = update.effective_user
-    context.user_data['restored'] = True
     
     try:
-        context.user_data['is_initialized'] = True
         db.cursor.execute("SELECT is_verified FROM users WHERE telegram_id = ?", (user.id,))
         user_data = db.cursor.fetchone()
 
@@ -65,6 +62,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await show_main_menu(update, user.id)
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Глобальный обработчик ошибок бота. Логирует ошибку и:
+    - Отправляет уведомление администраторам
+    - Информирует пользователя о проблеме
+    Обрабатывает как ошибки в обработчиках, так и системные ошибки
+    """
     error = str(context.error)
     logger.error(f"Ошибка: {error}", exc_info=context.error)
     
@@ -85,6 +88,11 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             logger.error(f"Не удалось отправить сообщение пользователю: {e}")
 
 async def test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Тестирует работоспособность соединения с Telegram API.
+    Проверяет доступность бота, выводит его основные данные.
+    Автоматически удаляет тестовые сообщения через 5 секунд.
+    """
     try:
         msg = await update.message.reply_text("🔄 Тестируем соединение...")
         bot_info = await context.bot.get_me()
@@ -108,6 +116,13 @@ async def test_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Основной обработчик текстовых сообщений. Выполняет:
+    - Обработку сообщений от незарегистрированных пользователей
+    - Проверку регистрации пользователя
+    - Перенаправление команд в соответствующие обработчики
+    - Обработку запросов отчетов по месяцам
+    """
     user = update.effective_user
     text = update.message.text
     logger.info(f"Получено сообщение: '{text}' от {user.id}")
@@ -140,18 +155,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         if not await check_registration(update, context):
             return await handle_unregistered(update, context)
 
-        # 3. Обработка команд отчетов
-        if text in ["💰 Бухгалтерский отчет", "📦 Отчет поставщика"]:
-            context.user_data['report_type'] = 'accounting' if text.startswith('💰') else 'provider'
-            await update.message.reply_text(
-                "Выберите период:",
-                reply_markup=ReplyKeyboardMarkup([
-                    ["Текущий месяц", "Прошлый месяц"],
-                    ["Вернуться в главное меню"]
-                ], resize_keyboard=True)
-            )
-            return SELECT_MONTH_RANGE
-        
         if text in ["Текущий месяц", "Прошлый месяц"] and context.user_data.get('report_type'):
             return await select_month_range(update, context)
         
@@ -167,6 +170,13 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         return await show_main_menu(update, user.id)
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Главный обработчик команд основного меню. Обеспечивает:
+    - Навигацию по разделам меню (дневное/недельное меню, заказы)
+    - Формирование отчетов (дневных/месячных) с проверкой прав доступа
+    - Обработку команды обновления меню
+    - Перенаправление неизвестных команд
+    """
     logger.info(f"Получена команда: '{update.message.text}' от пользователя {update.effective_user.id}")
     
     try:
@@ -177,8 +187,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await check_registration(update, context):
             return await handle_unregistered(update, context)
 
-        from keyboards import create_main_menu_keyboard  # Добавляем импорт
-        
         # Основные команды меню
         if text == "Меню на сегодня":
             return await show_today_menu(update, context)
@@ -192,8 +200,40 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif text == "Статистика за месяц":
             return await monthly_stats(update, context)
         
-        # elif text == "Написать администратору":
-            # return await start_admin_message(update, context)
+        elif text == "📅 Отчет за месяц":
+            # Устанавливаем тип отчета в зависимости от прав пользователя
+            if user.id in CONFIG.get('admin_ids', []):
+                context.user_data['report_type'] = 'admin'
+            elif user.id in CONFIG.get('provider_ids', []):
+                context.user_data['report_type'] = 'provider'
+            elif user.id in CONFIG.get('accounting_ids', []):
+                context.user_data['report_type'] = 'accounting'
+            else:
+                await update.message.reply_text("❌ У вас нет прав для просмотра отчетов")
+                return await show_main_menu(update, user.id)
+            
+            # Запрашиваем период
+            await update.message.reply_text(
+                "Выберите период:",
+                reply_markup=ReplyKeyboardMarkup([
+                    ["Текущий месяц"],
+                    ["Прошлый месяц"],
+                    ["Вернуться в главное меню"]
+                ], resize_keyboard=True)
+            )
+            return SELECT_MONTH_RANGE
+        
+        elif text == "📊 Отчет за день":
+            today = datetime.now(TIMEZONE).date()
+            if user.id in CONFIG.get('admin_ids', []):
+                await export_daily_admin_report(update, context, today)
+            elif user.id in CONFIG.get('provider_ids', []):
+                await export_daily_orders_for_provider(update, context, today)
+            elif user.id in CONFIG.get('accounting_ids', []):
+                await export_accounting_report(update, context, today, today)
+            else:
+                await update.message.reply_text("❌ Нет прав доступа")
+            return await show_main_menu(update, user.id)
         
         elif text == "Вернуться в главное меню":
             return await show_main_menu(update, user.id)
@@ -201,71 +241,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif text == "Обновить меню":
             await update.message.reply_text("Обновляю меню...", reply_markup=ReplyKeyboardRemove())
             return await show_main_menu(update, user.id)
-
-        # Обработка отчетов
-        elif text == "💰 Бухгалтерский отчет":
-            if user.id in CONFIG['accounting_ids']:
-                context.user_data['report_type'] = 'accounting'
-                logger.info(f"Установлен report_type: accounting для пользователя {user.id}")
-                await update.message.reply_text(
-                    "Выберите период:",
-                    reply_markup=ReplyKeyboardMarkup([
-                        ["Текущий месяц"],
-                        ["Прошлый месяц"],
-                        ["Вернуться в главное меню"]
-                    ], resize_keyboard=True)
-                )
-                return SELECT_MONTH_RANGE
-            else:
-                await update.message.reply_text("❌ У вас нет прав для просмотра бухгалтерских отчетов")
-                return await show_main_menu(update, user.id)
-
-        elif text == "📦 Отчет поставщика":
-            if user.id in CONFIG['provider_ids']:
-                context.user_data['report_type'] = 'provider'
-                logger.info(f"Установлен report_type: provider для пользователя {user.id}")
-                await update.message.reply_text(
-                    "Выберите период:",
-                    reply_markup=ReplyKeyboardMarkup([
-                        ["Текущий месяц"],
-                        ["Прошлый месяц"],
-                        ["Вернуться в главное меню"]
-                    ], resize_keyboard=True)
-                )
-                return SELECT_MONTH_RANGE
-            else:
-                await update.message.reply_text("❌ У вас нет прав для просмотра отчетов поставщика")
-                return await show_main_menu(update, user.id)
-
-        # Для администраторов
-        elif text == "📊 Отчет за день":
-            if (user.id in CONFIG.get('admin_ids', []) or 
-                user.id in CONFIG.get('provider_ids', []) or 
-                user.id in CONFIG.get('accounting_ids', [])):
-                context.user_data['report_type'] = 'admin'
-                await export_accounting_report(update, context)
-                return await show_main_menu(update, user.id)
-            else:
-                await update.message.reply_text("❌ Эта команда только для администраторов")
-                return await show_main_menu(update, user.id)
-
-        elif text == "📅 Отчет за месяц":
-            if (user.id in CONFIG.get('admin_ids', []) or 
-                user.id in CONFIG.get('provider_ids', []) or 
-                user.id in CONFIG.get('accounting_ids', [])):
-                context.user_data['report_type'] = 'admin'
-                await update.message.reply_text(
-                    "Выберите период:",
-                    reply_markup=ReplyKeyboardMarkup([
-                        ["Текущий месяц"],
-                        ["Прошлый месяц"],
-                        ["Вернуться в главное меню"]
-                    ], resize_keyboard=True)
-                )
-                return SELECT_MONTH_RANGE
-            else:
-                await update.message.reply_text("❌ Эта команда только для администраторов")
-                return await show_main_menu(update, user.id)
 
         # Обработка неизвестной команды
         else:
@@ -277,54 +252,69 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Ошибка в main_menu: {e}", exc_info=True)
-        from keyboards import create_main_menu_keyboard  # Импорт в блоке except
         await update.message.reply_text(
             "⚠️ Произошла ошибка. Попробуйте снова.",
-            reply_markup=create_main_menu_keyboard(user.id)
+            reply_markup=create_main_menu_keyboard(user.id) if user else ReplyKeyboardRemove()
         )
+        return ConversationHandler.END
     
 async def handle_registered_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик для зарегистрированных пользователей"""
-    user = update.effective_user
+    """
+    Специализированный обработчик для зарегистрированных пользователей.
+    Проверяет права доступа и предоставляет функционал:
+    - Формирование бухгалтерских отчетов
+    - Генерацию отчетов для поставщиков
+    - Перенаправление остальных команд в main_menu
+    """
+    try:
+        user = update.effective_user
+        
+        # Проверяем регистрацию
+        db.cursor.execute("SELECT is_verified FROM users WHERE telegram_id = ?", (user.id,))
+        result = db.cursor.fetchone()
+        
+        if not result or not result[0]:
+            await update.message.reply_text(
+                "Пожалуйста, сначала зарегистрируйтесь через /start",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
+        
+        # Если пользователь зарегистрирован - обрабатываем команду
+        text = update.message.text
+        
+        # Обработка отчетов
+        if text == "💰 Бухгалтерский отчет":
+            if user.id in CONFIG['accounting_ids']:
+                context.user_data['report_type'] = 'accounting'
+                await update.message.reply_text(
+                    "Выберите период:",
+                    reply_markup=ReplyKeyboardMarkup([
+                        ["Текущий месяц", "Прошлый месяц"],
+                        ["Вернуться в главное меню"]
+                    ], resize_keyboard=True)
+                )
+                return SELECT_MONTH_RANGE
+        
+        elif text == "📦 Отчет поставщика":
+            if user.id in CONFIG['provider_ids']:
+                context.user_data['report_type'] = 'provider'
+                await update.message.reply_text(
+                    "Выберите период:",
+                    reply_markup=ReplyKeyboardMarkup([
+                        ["Текущий месяц", "Прошлый месяц"],
+                        ["Вернуться в главное меню"]
+                    ], resize_keyboard=True)
+                )
+                return SELECT_MONTH_RANGE
+        
+        # Все остальные команды обрабатываем через main_menu
+        return await main_menu(update, context)
     
-    # Проверяем регистрацию
-    db.cursor.execute("SELECT is_verified FROM users WHERE telegram_id = ?", (user.id,))
-    result = db.cursor.fetchone()
-    
-    if not result or not result[0]:
+    except Exception as e:
+        logger.error(f"Ошибка в handle_registered_user: {e}", exc_info=True)
         await update.message.reply_text(
-            "Пожалуйста, сначала зарегистрируйтесь через /start",
+            "⚠️ Произошла ошибка. Попробуйте снова.",
             reply_markup=ReplyKeyboardRemove()
         )
-        return
-    
-    # Если пользователь зарегистрирован - обрабатываем команду
-    text = update.message.text
-    
-    # Обработка отчетов
-    if text == "💰 Бухгалтерский отчет":
-        if user.id in CONFIG['accounting_ids']:
-            context.user_data['report_type'] = 'accounting'
-            await update.message.reply_text(
-                "Выберите период:",
-                reply_markup=ReplyKeyboardMarkup([
-                    ["Текущий месяц", "Прошлый месяц"],
-                    ["Вернуться в главное меню"]
-                ], resize_keyboard=True)
-            )
-            return SELECT_MONTH_RANGE
-    
-    elif text == "📦 Отчет поставщика":
-        if user.id in CONFIG['provider_ids']:
-            context.user_data['report_type'] = 'provider'
-            await update.message.reply_text(
-                "Выберите период:",
-                reply_markup=ReplyKeyboardMarkup([
-                    ["Текущий месяц", "Прошлый месяц"],
-                    ["Вернуться в главное меню"]
-                ], resize_keyboard=True)
-            )
-            return SELECT_MONTH_RANGE
-    
-    # Все остальные команды обрабатываем через main_menu
-    return await main_menu(update, context)
+        return ConversationHandler.END
